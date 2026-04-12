@@ -53,7 +53,6 @@ struct _ip_t *res_ip_alloc(struct sockaddr_in *addr, char *mac)
 		return NULL;
 	}
 
-alloc_from_pool:
 	/* If addr is specified and valid, try to allocate that specific IP */
 	if (addr && addr->sin_addr.s_addr != 0) {
 		list_for_each_entry(new_ip, &ippool->pool, list) {
@@ -83,9 +82,7 @@ alloc_from_pool:
 	}
 
 	/* No IPs available */
-	if (new_ip == NULL) {
-		sys_warn("No available IPs in pool\n");
-	}
+	sys_warn("No available IPs in pool\n");
 	UNLOCK(&ippool->lock);
 	return NULL;
 }
@@ -255,40 +252,39 @@ void res_ip_reload(void)
 	uint32_t end_n   = ntohl(ipend.s_addr);
 	uint32_t mask_n  = ntohl(ipmask.s_addr);
 
-	uint32_t net_bits = ~mask_n;
-	uint32_t start_host = start_n & mask_n;
-	uint32_t end_host   = end_n   & mask_n;
+	/* Compute network address and broadcast address */
+	uint32_t netaddr = start_n & mask_n;
+	uint32_t bcast   = start_n | (~mask_n);
 
-	if (end_host <= start_host || net_bits == 0) {
-		sys_warn("Invalid IP range\n");
+	/* Validate: end must be in same subnet */
+	uint32_t end_netaddr = end_n & mask_n;
+	uint32_t end_bcast   = end_n | (~mask_n);
+	if (end_netaddr != netaddr) {
+		sys_warn("IP range crosses subnet boundary\n");
 		return;
 	}
 
-	int num = (int)(end_host - start_host + 1);
+	/* First usable host (skip network address) */
+	uint32_t first_usable = (netaddr == start_n) ? start_n + 1 : start_n;
 
-	/* Skip network address */
-	if (start_host == 0)
-		start_host++;
+	/* Last usable host (skip broadcast address) */
+	uint32_t last_usable = (end_n == bcast) ? end_n - 1 : end_n;
 
-	/* Skip broadcast address */
-	uint32_t max_host = net_bits;
-	if (end_host >= max_host)
-		end_host = max_host - 1;
-
-	num = (int)(end_host - start_host + 1);
-	if (num <= 0) {
-		sys_warn("No usable IPs in pool\n");
+	if (first_usable > last_usable) {
+		sys_warn("No usable IPs in pool (only network/broadcast)\n");
 		return;
 	}
+
+	int num = (int)(last_usable - first_usable + 1);
 
 	res_ip_clear();
 
-	uint32_t cur = start_host;
 	char ip_str[INET_ADDRSTRLEN];
 	struct sockaddr_in addr;
 
-	for (int i = 0; i < num; i++) {
-		addr.sin_addr.s_addr = htonl((cur + i) | (start_n & mask_n));
+	for (uint32_t ip = first_usable; ip <= last_usable; ip++) {
+		addr.sin_family = AF_INET;
+		addr.sin_addr.s_addr = htonl(ip);
 		inet_ntop(AF_INET, &addr.sin_addr, ip_str, sizeof(ip_str));
 		if (res_ip_add(&addr) != 0)
 			break;

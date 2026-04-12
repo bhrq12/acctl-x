@@ -360,61 +360,73 @@ static void __ap_reg(struct ap_hash_t *aphash,
 static void *ap_heartbeat_check(void *arg)
 {
 	(void)arg;
-	time_t now;
-	struct ap_hash_t *aphash;
-	char mac_str[32];
+
+#define STALE_THRESHOLD  180  /* seconds before AP is considered offline */
+
+	struct stale_ap_t {
+		char mac[ETH_ALEN];
+		int  sock;
+		time_t last_seen;
+	};
+	struct stale_ap_t stale[64];  /* max stale APs per round */
+	int stale_count = 0;
 
 	while (1) {
-		sleep(60);  /* check every 60 seconds */
+		sleep(60);
+		stale_count = 0;
+		time_t now = time(NULL);
 
-		now = time(NULL);
-		/* Iterate through all hash buckets */
+		/* Phase 1: collect stale APs under lock */
 		for (int i = 0; i < AP_HASH_SIZE; i++) {
-			struct hlist_node *n, *tmp;
 			pthread_mutex_lock(&g_ap_table.lock);
+
+			struct hlist_node *n, *tmp;
 			hlist_for_each_entry_safe(aphash, n, tmp,
 				&g_ap_table.buckets[i], aphash->node) {
-				/* Skip entries with no MAC (empty slots) */
 				if (aphash->ap.mac[0] == 0)
 					continue;
 
-				/* Check if AP is stale (no activity for 3 intervals) */
 				if (aphash->ap.last_seen > 0 &&
-				    now - aphash->ap.last_seen > 180) {
-					snprintf(mac_str, sizeof(mac_str),
-						MAC_FMT,
-						aphash->ap.mac[0],
-						aphash->ap.mac[1],
-						aphash->ap.mac[2],
-						aphash->ap.mac[3],
-						aphash->ap.mac[4],
-						aphash->ap.mac[5]);
-
-					sys_warn("AP offline: %s (last seen: %lds ago)\n",
-						mac_str, (long)(now - aphash->ap.last_seen));
-
-					/* Mark as offline in DB */
-					sql_ap_set_offline((const char *)aphash->ap.mac);
-
-					/* Insert alarm event */
-					sql_alarm_insert(2,  /* WARN level */
-						mac_str,
-						"AP offline - no heartbeat",
-						NULL);
-
-					/* Mark in hash */
-					aphash->ap.status = AP_STATUS_OFFLINE;
-
-					/* Close TCP socket if still open */
-					if (aphash->ap.sock >= 0) {
-						delete_sockarr(aphash->ap.sock);
-						aphash->ap.sock = -1;
+				    now - aphash->ap.last_seen > STALE_THRESHOLD) {
+					/* Snapshot before releasing lock */
+					if (stale_count < 64) {
+						struct stale_ap_t *s = &stale[stale_count];
+						memcpy(s->mac, aphash->ap.mac, ETH_ALEN);
+						s->sock = aphash->ap.sock;
+						s->last_seen = aphash->ap.last_seen;
+						stale_count++;
 					}
+					/* Mark offline in hash */
+					aphash->ap.status = AP_STATUS_OFFLINE;
+					aphash->ap.sock = -1;
 				}
 			}
+
 			pthread_mutex_unlock(&g_ap_table.lock);
 		}
+
+		/* Phase 2: process stale APs outside lock */
+		for (int i = 0; i < stale_count; i++) {
+			struct stale_ap_t *s = &stale[i];
+			char mac_str[32];
+			snprintf(mac_str, sizeof(mac_str),
+				MAC_FMT,
+				s->mac[0], s->mac[1], s->mac[2],
+				s->mac[3], s->mac[4], s->mac[5]);
+
+			sys_warn("AP offline: %s (last seen: %lds ago)\n",
+				mac_str, (long)(now - s->last_seen));
+
+			sql_ap_set_offline(mac_str);
+			sql_alarm_insert(2, mac_str,
+				"AP offline - no heartbeat", NULL);
+
+			if (s->sock >= 0)
+				delete_sockarr(s->sock);
+		}
 	}
+
+#undef STALE_THRESHOLD
 	return NULL;
 }
 
@@ -488,30 +500,39 @@ void ac_init(void)
 void ap_lost(int sock)
 {
 	char mac_str[32];
-	struct ap_hash_t *aphash;
+	char mac_copy[ETH_ALEN];
+	int found = 0;
 
-	sys_debug("AP lost (sock=%d)\n", sock);
+	pthread_mutex_lock(&g_ap_table.lock);
 
-	/* Find AP by socket and mark offline */
+	/* Find AP by socket and snapshot its MAC */
 	for (int i = 0; i < AP_HASH_SIZE; i++) {
+		struct ap_hash_t *aphash;
 		hlist_for_each_entry(aphash, &g_ap_table.buckets[i],
 			aphash->node) {
 			if (aphash->ap.sock == sock) {
+				/* Copy MAC before releasing lock */
+				memcpy(mac_copy, aphash->ap.mac, ETH_ALEN);
 				aphash->ap.sock = -1;
 				aphash->ap.status = AP_STATUS_OFFLINE;
-
-				snprintf(mac_str, sizeof(mac_str),
-					MAC_FMT,
-					aphash->ap.mac[0],
-					aphash->ap.mac[1],
-					aphash->ap.mac[2],
-					aphash->ap.mac[3],
-					aphash->ap.mac[4],
-					aphash->ap.mac[5]);
-				sql_ap_set_offline(mac_str);
-				return;
+				found = 1;
+				break;
 			}
 		}
+		if (found)
+			break;
+	}
+
+	pthread_mutex_unlock(&g_ap_table.lock);
+
+	if (found) {
+		snprintf(mac_str, sizeof(mac_str),
+			MAC_FMT,
+			mac_copy[0], mac_copy[1],
+			mac_copy[2], mac_copy[3],
+			mac_copy[4], mac_copy[5]);
+		sys_debug("AP lost (sock=%d): %s\n", sock, mac_str);
+		sql_ap_set_offline(mac_str);
 	}
 }
 

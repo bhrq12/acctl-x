@@ -1,39 +1,39 @@
 /*
  * =====================================================================================
- *
  *       Filename:  process.h
- *
- *    Description:  
- *
- *        Version:  1.0
- *        Created:  2014年08月26日 10时18分54秒
- *       Revision:  none
- *       Compiler:  gcc
- *
- *         Author:  jianxi sun (jianxi), ycsunjane@gmail.com
- *   Organization:  
- *
+ *       Description:  AP-side process declarations — v2.0
  * =====================================================================================
  */
-#ifndef __PROCESS_H__
-#define __PROCESS_H__
-#include <stdint.h>
-#include <pthread.h>
-#include "msg.h"
-struct sysstat_t {
-	/* only used by local ac */
-	char acuuid[UUID_LEN];
-	char dmac[ETH_ALEN];
-	int isreg;
+#ifndef __AP_PROCESS_H__
+#define __AP_PROCESS_H__
 
-	/* used by local ac and remote ac */
-	int sock;
+#include <linux/if_ether.h>
+#include <netinet/in.h>
+#include <pthread.h>
+
+#include "msg.h"
+#include "apstatus.h"
+
+struct sysstat_t {
+	char     acuuid[UUID_LEN];
+	char     dmac[ETH_ALEN];
+	int      isreg;
+	int      sock;
 	struct sockaddr_in server;
 	pthread_mutex_t lock;
+	time_t   last_brd;
 };
 
-void ac_lost();
-void init_report();
 extern struct sysstat_t sysstat;
-void msg_proc(struct msg_head_t *msg, int len, int proto);
-#endif /* __PROCESS_H__ */
+
+void init_report(void);
+void msg_proc(void *data, int len, int proto);
+void *__net_netrcv(void *arg);
+
+/* AP status collection (declared in apstatus.h) */
+struct apstatus_t *get_apstatus(void);
+unsigned long get_uptime(void);
+unsigned long get_memfree(void);
+unsigned int  get_cpu_usage(void);
+
+#endif /* __AP_PROCESS_H__ */

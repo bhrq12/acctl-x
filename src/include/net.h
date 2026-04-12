@@ -3,11 +3,13 @@
  *
  *       Filename:  net.h
  *
- *    Description:  Network layer abstraction header
+ *    Description:  Network layer abstraction header — single canonical version.
+ *                  Compiled into both acser and apctl.
+ *                  All other net.h files in subdirectories must NOT exist.
  *
  *        Version:  2.0
  *        Created:  2026-04-12
- *       Revision:  complete rewrite for production use
+ *       Revision:  unified header (no duplicates in subdirectories)
  *       Compiler:  gcc
  *
  *         Author:  jianxi sun (jianxi), ycsunjane@gmail.com
@@ -20,12 +22,27 @@
 
 #include <netinet/in.h>
 #include <linux/if_ether.h>
-#include "link.h"
 
+/* Protocol selectors for net_send() */
 #define MSG_PROTO_ETH     (8000)
 #define MSG_PROTO_TCP     (8001)
 
+/*
+ * net_init — initialize the network layer
+ *   AC: starts TCP listener + ETH broadcast thread
+ *   AP: starts ETH receive + epoll event loop
+ */
+void net_init(void);
+
+/*
+ * net_send — send a packet via the specified protocol
+ *   @proto:  MSG_PROTO_ETH (Ethernet) or MSG_PROTO_TCP
+ *   @sock:   TCP socket fd (for MSG_PROTO_TCP; ignored for ETH)
+ *   @dmac:   destination MAC address (for MSG_PROTO_ETH)
+ *   @msg:    message payload
+ *   @size:   payload size in bytes
+ *   Returns: bytes sent, or -1 on error
+ */
 int net_send(int proto, int sock, char *dmac, char *msg, int size);
-void *net_recv(void *arg);
 
 #endif /* __NET_H__ */

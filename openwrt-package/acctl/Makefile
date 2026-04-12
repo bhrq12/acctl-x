@@ -23,27 +23,27 @@ define Package/acctl/description
 endef
 
 define Build/Prepare
-  $(CP) $(CURDIR)/../../../* $(PKG_BUILD_DIR)/
+	$(CP) $(CURDIR)/../../../* $(PKG_BUILD_DIR)/
 endef
 
 define Build/Compile
-  $(MAKE) -C $(PKG_BUILD_DIR) \
-    CC="$(TARGET_CC)" \
-    CFLAGS="$(TARGET_CFLAGS) -I$(STAGING_DIR)/usr/include" \
-    LDFLAGS="$(TARGET_LDFLAGS) -L$(STAGING_DIR)/usr/lib" \
-    SQLITE_CFLAGS="-I$(STAGING_DIR)/usr/include" \
-    SQLITE_LIBS="-L$(STAGING_DIR)/usr/lib -lsqlite3"
+	$(MAKE) -C $(PKG_BUILD_DIR) \
+		CC="$(TARGET_CC)" \
+		CFLAGS="$(TARGET_CFLAGS) -I$(STAGING_DIR)/usr/include" \
+		LDFLAGS="$(TARGET_LDFLAGS) -L$(STAGING_DIR)/usr/lib" \
+		SQLITE_CFLAGS="-I$(STAGING_DIR)/usr/include" \
+		SQLITE_LIBS="-L$(STAGING_DIR)/usr/lib -lsqlite3"
 endef
 
 define Package/acctl/install
-  $(INSTALL_DIR) $(1)/usr/bin
-  $(INSTALL_BIN) $(PKG_BUILD_DIR)/ac/acser $(1)/usr/bin/
-  $(INSTALL_BIN) $(PKG_BUILD_DIR)/ap/apctl $(1)/usr/bin/
-  $(INSTALL_DIR) $(1)/etc/init.d
-  $(INSTALL_BIN) $(CURDIR)/files/acctl.init $(1)/etc/init.d/acctl
-  $(INSTALL_DIR) $(1)/etc/config
-  $(INSTALL_CONF) $(CURDIR)/files/acctl.config $(1)/etc/config/acctl
-  $(INSTALL_DIR) $(1)/etc/acctl
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/ac/acser $(1)/usr/bin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/ap/apctl $(1)/usr/bin/
+	$(INSTALL_DIR) $(1)/etc/init.d
+	$(INSTALL_BIN) $(CURDIR)/files/acctl.init $(1)/etc/init.d/acctl
+	$(INSTALL_DIR) $(1)/etc/config
+	$(INSTALL_CONF) $(CURDIR)/files/acctl.config $(1)/etc/config/acctl
+	$(INSTALL_DIR) $(1)/etc/acctl
 endef
 
 $(eval $(call BuildPackage,acctl))

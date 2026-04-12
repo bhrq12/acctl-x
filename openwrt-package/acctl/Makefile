@@ -20,7 +20,15 @@ define Package/acctl/description
 endef
 
 define Build/Prepare
-	$(CP) $(CURDIR)/../../../* $(PKG_BUILD_DIR)/
+	# 创建构建目录
+	mkdir -p $(PKG_BUILD_DIR)
+	# 复制所有源代码文件
+	$(CP) $(CURDIR)/../../../ac $(PKG_BUILD_DIR)/
+	$(CP) $(CURDIR)/../../../ap $(PKG_BUILD_DIR)/
+	$(CP) $(CURDIR)/../../../include $(PKG_BUILD_DIR)/
+	$(CP) $(CURDIR)/../../../lib $(PKG_BUILD_DIR)/
+	$(CP) $(CURDIR)/../../../scripts $(PKG_BUILD_DIR)/
+	$(CP) $(CURDIR)/../../../Makefile $(PKG_BUILD_DIR)/
 endef
 
 define Build/Compile

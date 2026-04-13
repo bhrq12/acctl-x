@@ -4,7 +4,7 @@ PKG_NAME:=acctl
 PKG_VERSION:=2.0
 PKG_RELEASE:=1
 
-PKG_BUILD_DIR:=$(KERNEL_BUILD_DIR)/$(PKG_NAME)
+PKG_BUILD_DIR:=$(if $(KERNEL_BUILD_DIR),$(KERNEL_BUILD_DIR),$(TOPDIR)/build_dir/target-arm_cortex-a7+neon-vfpv4_musl_eabi)/$(PKG_NAME)
 
 PKG_CONFIG_DEPENDS:=
 

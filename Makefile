@@ -18,9 +18,6 @@ define Package/acctl
   CATEGORY:=Network
   SUBMENU:=Access Points/Controllers
   TITLE:=OpenWrt AC Controller v2.0
-  DESCRIPTION:=Central Access Point Controller for OpenWrt. Manages APs via TCP/ETH, \
-    CHAP authentication, SQLite persistence, AP grouping, OTA firmware upgrades, \
-    alarm system, and LuCI web interface.
   DEPENDS:=+libpthread +libsqlite3 +libuci-lua
   URL:=https://github.com/yourname/acctl
   MAINTAINER:=jianxi sun <ycsunjane@gmail.com>

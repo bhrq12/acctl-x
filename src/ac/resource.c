@@ -27,6 +27,8 @@
 #include "sql.h"
 #include "arg.h"
 #include "mjson.h"
+#include "pthread.h"
+#include "list.h"
 
 struct _ippool_t *ippool = NULL;
 struct resource_cfg_t resource;

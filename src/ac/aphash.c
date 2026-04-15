@@ -66,7 +66,9 @@ struct ap_hash_t *hash_ap(char *mac)
 	struct ap_hash_t *aphash;
 
 	pthread_mutex_lock(&g_ap_table.lock);
-	hlist_for_each_entry(aphash, &g_ap_table.buckets[key], aphash->node) {
+	struct hlist_node *n;
+	hlist_for_each_entry(aphash, n,
+		&g_ap_table.buckets[key], node)
 		if (memcmp(aphash->ap.mac, mac, ETH_ALEN) == 0) {
 			pthread_mutex_unlock(&g_ap_table.lock);
 			return aphash;
@@ -133,7 +135,7 @@ void hash_ap_del(char *mac)
 	for (int i = 0; i < AP_HASH_SIZE; i++) {
 		struct hlist_node *n, *tmp;
 		hlist_for_each_entry_safe(aphash, n, tmp,
-			&g_ap_table.buckets[i], aphash->node) {
+			&g_ap_table.buckets[i], node) {
 			if (memcmp(aphash->ap.mac, mac, ETH_ALEN) == 0) {
 				hlist_del(&aphash->node);
 				g_ap_table.count--;
@@ -217,8 +219,10 @@ int hash_ap_list_json(char *buf, int buflen)
 	for (int i = 0; i < AP_HASH_SIZE; i++) {
 		pthread_mutex_lock(&g_ap_table.lock);
 		struct ap_hash_t *aphash;
-		hlist_for_each_entry(aphash, &g_ap_table.buckets[i],
-			aphash->node) {
+		struct hlist_node *n;
+		hlist_for_each_entry(aphash, n,
+			&g_ap_table.buckets[i],
+			node) {
 			if (aphash->ap.mac[0] == 0)
 				continue;
 
@@ -262,8 +266,10 @@ void hash_ap_dump(void)
 	for (int i = 0; i < AP_HASH_SIZE; i++) {
 		pthread_mutex_lock(&g_ap_table.lock);
 		struct ap_hash_t *aphash;
-		hlist_for_each_entry(aphash, &g_ap_table.buckets[i],
-			aphash->node) {
+		struct hlist_node *n;
+		hlist_for_each_entry(aphash, n,
+			&g_ap_table.buckets[i],
+			node) {
 			if (aphash->ap.mac[0] == 0)
 				continue;
 

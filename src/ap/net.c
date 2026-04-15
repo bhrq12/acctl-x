@@ -17,6 +17,9 @@
 #include "thread.h"
 #include "process.h"
 #include "link.h"
+#include "sys/socket.h"
+#include "netinet/in.h"
+#include "arpa/inet.h"
 
 /*
  * Datalink layer receive callback.

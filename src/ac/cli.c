@@ -17,6 +17,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <json-c/json.h>
+#include "fcntl.h"
+#include "unistd.h"
 
 #define DB_PATH  "/etc/acctl/ac.json"
 #define OUT_MAX  (64 * 1024)

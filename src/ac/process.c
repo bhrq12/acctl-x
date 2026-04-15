@@ -43,6 +43,9 @@
 #include "resource.h"
 #include "sec.h"
 #include "dllayer.h"
+#include "sys/socket.h"
+#include "pthread.h"
+#include "netinet/in.h"
 
 volatile int ap_reg_cnt = 0;  /* registration counter for stats */
 
@@ -401,7 +404,7 @@ static void *ap_heartbeat_check(void *arg)
 
 			struct hlist_node *n, *tmp;
 			hlist_for_each_entry_safe(aphash, n, tmp,
-				&g_ap_table.buckets[i], aphash->node) {
+				&g_ap_table.buckets[i], node) {
 				if (aphash->ap.mac[0] == 0)
 					continue;
 

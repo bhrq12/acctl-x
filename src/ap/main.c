@@ -34,6 +34,7 @@
 #include "thread.h"
 #include "sec.h"
 #include "aphash.h"
+#include "syslog.h"
 
 volatile int g_running = 1;
 

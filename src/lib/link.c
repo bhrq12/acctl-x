@@ -29,6 +29,10 @@
 
 #include "log.h"
 #include "link.h"
+#include "sys/socket.h"
+#include "netinet/in.h"
+#include "linux/if_ether.h"
+#include "net/if.h"
 
 static pthread_mutex_t sockarr_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct sockarr_t *__head = NULL;

@@ -125,8 +125,10 @@ static void *ac_message_travel(void *arg)
 		/* Iterate all hash buckets */
 		for (int i = 0; i < AP_HASH_SIZE; i++) {
 			pthread_mutex_lock(&g_ap_table.lock);
-			hlist_for_each_entry(aphash, &g_ap_table.buckets[i],
-				aphash->node) {
+			struct hlist_node *n;
+			hlist_for_each_entry(aphash, n,
+				&g_ap_table.buckets[i],
+				node) {
 				/* Skip empty slots */
 				if (aphash->ap.mac[0] == 0)
 					continue;

@@ -33,6 +33,7 @@
 #include "sha256.h"
 #include "log.h"
 #include "aphash.h"
+#include "arpa/inet.h"
 
 /* ========================================================================
  * 1. Command whitelist validation (prevents command injection)

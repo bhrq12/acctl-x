@@ -27,6 +27,8 @@
 
 #include "arg.h"
 #include "log.h"
+#include "sys/socket.h"
+#include "arpa/inet.h"
 
 struct arg_t argument = {0};
 int debug = 0;

@@ -38,6 +38,7 @@ enum json_errors {
     JSON_ERR_BADENUM,          /* invalid enumerated value */
     JSON_ERR_QNONSTRING,       /* saw quoted value when expecting nonstring */
     JSON_ERR_NONQSTRING,       /* didn't see quoted value when expecting string */
+    JSON_ERR_BADNUM,           /* invalid numeric value */
     JSON_ERR_MISC,             /* other data conversion error */
     JSON_ERR_NULLPTR,          /* unexpected null value or attribute pointer */
 };

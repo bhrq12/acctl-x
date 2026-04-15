@@ -620,7 +620,7 @@ int json_read_array(const char *cp, const struct json_array_t *arr,
 	    else
 		++cp;
 	    arr->arr.strings.ptrs[offset] = tp;
-	    for (; tp - arr->arr.strings.store < arr->arr.strings.storelen;
+	    for (; (size_t)(tp - arr->arr.strings.store) < arr->arr.strings.storelen;
 		 tp++)
 		if (*cp == '"') {
 		    ++cp;
@@ -701,6 +701,11 @@ int json_read_array(const char *cp, const struct json_array_t *arr,
 	case t_check:
 	case t_ignore:
 	    json_debug_trace((1, "Invalid array subtype.\n"));
+	    return JSON_ERR_SUBTYPE;
+	case t_null:
+	    break;
+	default:
+	    json_debug_trace((1, "Unhandled element type: %d\n", arr->element_type));
 	    return JSON_ERR_SUBTYPE;
 	}
 	arrcount++;

@@ -69,10 +69,10 @@ static void *__net_dllrecv(void *arg)
 	msg->len = rcvlen;
 
 	/* Use Ethernet-layer source MAC for routing (not msg header MAC) */
-	struct ap_hash_t *aphash = hash_ap(src_mac);
+	struct ap_hash_t *aphash = hash_ap((const unsigned char *)src_mac);
 	if (!aphash) {
 		/* Unknown AP — create new entry */
-		aphash = hash_ap_add(src_mac);
+		aphash = hash_ap_add((const unsigned char *)src_mac);
 		if (!aphash) {
 			free(msg);
 			return NULL;
@@ -95,7 +95,7 @@ static void *__net_dllrecv(void *arg)
  * TCP receive — handle TCP stream from AP
  * ======================================================================== */
 
-static void *__net_netrcv(void *arg)
+void *__net_netrcv(void *arg)
 {
 	struct sockarr_t *sockarr = arg;
 	unsigned int events = sockarr->retevents;

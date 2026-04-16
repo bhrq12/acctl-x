@@ -126,22 +126,22 @@ int net_send(int proto, int sock, char *dmac, char *msg, int size)
 	case MSG_PROTO_ETH:
 		sys_debug("Send packet through datalink layer\n");
 		return dll_sendpkt(dmac, msg, size);
-	case MSG_PROTO_TCP:
+	case MSG_PROTO_TCP: {
 		if(sock < 0) {
 			sys_err("Invalid socket: %d\n", sock);
 			return -1;
 		}
 
-		sys_debug("Send packet through net layer, sock: %d, msg: %p, size: %d\n", 
+		sys_debug("Send packet through net layer, sock: %d, msg: %p, size: %d\n",
 			sock, msg, size);
 		struct nettcp_t net;
 		net.sock = sock;
 		return tcp_sendpkt(&net, msg, size);
+	}
 	default:
 		sys_err("Invalid protocol\n");
 		return -1;
 	}
-	return -1;
 }
 
 struct sockarr_t *

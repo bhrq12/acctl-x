@@ -34,7 +34,6 @@
 #include "thread.h"
 #include "sec.h"
 #include "aphash.h"
-#include "syslog.h"
 
 volatile int g_running = 1;
 
@@ -84,9 +83,6 @@ int main(int argc, char *argv[])
 
 	/* Initialize network (epoll + datalink layer) */
 	net_init();
-
-	/* Initialize message queue */
-	message_init();
 
 	/* Initialize and start reporting */
 	init_report();

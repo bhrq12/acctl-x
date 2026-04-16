@@ -45,8 +45,6 @@
 #include "sec.h"
 #include "dllayer.h"
 #include "sys/socket.h"
-#include "pthread.h"
-#include "netinet/in.h"
 
 volatile int ap_reg_cnt = 0;  /* registration counter for stats */
 

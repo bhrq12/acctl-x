@@ -758,10 +758,9 @@ int db_group_list(char *json_buf, int buflen)
     int first = 1;
 
     if (buflen < 2) return -1;
-    /* FIX: proper {"groups":[ opening — was bare { that produced }{...} */
-    int n = snprintf(json_buf, buflen, "\"groups\":[" );
+    int n = snprintf(json_buf, buflen, "{\"groups\":[");
     if (n < 0 || n >= buflen) { json_buf[0] = '\0'; return -1; }
-    int pos = n;
+    pos = n;
 
     int len = json_object_array_length(groups);
     for (int i = 0; i < len; i++) {
@@ -776,15 +775,14 @@ int db_group_list(char *json_buf, int buflen)
         const char *desc    = safe_str(g, "description");
         const char *policy = safe_str(g, "update_policy");
 
-        int n = snprintf(json_buf + pos, buflen - pos,
-            "\"id\":%d,\"name\":\"%s\",\"description\":\"%s\",\"policy\":\"%s\"",
+        n = snprintf(json_buf + pos, buflen - pos,
+            "{\"id\":%d,\"name\":\"%s\",\"description\":\"%s\",\"policy\":\"%s\"}",
             id, name, desc, policy);
         if (n < 0 || n >= buflen - pos) { json_buf[pos] = '\0'; return -1; }
         pos += n;
     }
 
     if (pos >= buflen - 2) { json_buf[pos] = '\0'; return -1; }
-    /* FIX: close array ] then object } — was }{]} that produced }{][} */
     json_buf[pos++] = ']';
     json_buf[pos++] = '}';
     json_buf[pos] = '\0';

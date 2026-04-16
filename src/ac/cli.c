@@ -17,8 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <json-c/json.h>
-#include "fcntl.h"
-#include "unistd.h"
+#include <sys/types.h>
 
 #define DB_PATH  "/etc/acctl/ac.json"
 #define OUT_MAX  (64 * 1024)
@@ -84,7 +83,8 @@ static int cmd_groups(void)
 
     printf("{\"groups\":[");
     int len = json_object_array_length(groups);
-    for (int i = 0; i < len; i++) {
+    int i;
+    for (i = 0; i < len; i++) {
         json_object *g = json_object_array_get_idx(groups, i);
         if (i > 0) printf(",");
         printf("{\"id\":%s,\"name\":\"%s\",\"description\":\"%s\",\"policy\":\"%s\"}",
@@ -115,7 +115,8 @@ static int cmd_aps(int limit)
     printf("{\"aps\":[");
     int len = json_object_array_length(nodes);
     int count = 0;
-    for (int i = 0; i < len && count < limit; i++) {
+    int i;
+    for (i = 0; i < len && count < limit; i++) {
         json_object *n = json_object_array_get_idx(nodes, i);
         if (i > 0) printf(",");
         printf("{\"mac\":\"%s\",\"hostname\":\"%s\",\"wan_ip\":\"%s\","
@@ -156,7 +157,8 @@ static int cmd_alarms(int limit)
     printf("{\"alarms\":[");
     int len = json_object_array_length(alarms);
     int count = 0;
-    for (int i = len - 1; i >= 0 && count < limit; i--) {
+    int i;
+    for (i = len - 1; i >= 0 && count < limit; i--) {
         json_object *a = json_object_array_get_idx(alarms, i);
         if (i < len - 1) printf(",");
         int lvl = json_object_get_int(json_object_object_get(a, "level"));
@@ -270,7 +272,8 @@ static int cmd_ack_all(void)
 
     int len = json_object_array_length(alarms);
     int count = 0;
-    for (int i = 0; i < len; i++) {
+    int i;
+    for (i = 0; i < len; i++) {
         json_object *a = json_object_array_get_idx(alarms, i);
         if (json_object_get_int(json_object_object_get(a, "acknowledged")) == 0) {
             json_object_object_add(a, "acknowledged", json_object_new_int(1));
@@ -304,7 +307,8 @@ static int cmd_firmwares(void)
 
     printf("{\"firmwares\":[");
     int len = json_object_array_length(fws);
-    for (int i = len - 1; i >= 0; i--) {
+    int i;
+    for (i = len - 1; i >= 0; i--) {
         json_object *fw = json_object_array_get_idx(fws, i);
         if (i < len - 1) printf(",");
         printf("{\"version\":\"%s\",\"filename\":\"%s\","

@@ -83,7 +83,7 @@ struct ap_hash_t *hash_ap(const unsigned char *mac)
  * hash_ap_add — create new AP entry for MAC address
  *   Returns: ap_hash_t* or NULL on error
  */
-struct ap_hash_t *hash_ap_add(char *mac)
+struct ap_hash_t *hash_ap_add(const unsigned char *mac)
 {
 	if (!mac)
 		return NULL;
@@ -144,8 +144,8 @@ void hash_ap_del(char *mac)
 				pthread_mutex_unlock(&g_ap_table.lock);
 				sys_debug("AP removed from hash: "
 					MAC_FMT" (remaining=%d)\n",
-					mac[0], mac[1], mac[2],
-					mac[3], mac[4], mac[5],
+					(unsigned char)mac[0], (unsigned char)mac[1], (unsigned char)mac[2],
+					(unsigned char)mac[3], (unsigned char)mac[4], (unsigned char)mac[5],
 					g_ap_table.count);
 				return;
 			}
@@ -159,7 +159,7 @@ void hash_ap_del(char *mac)
  */
 void hash_ap_update_sock(char *mac, int sock)
 {
-	struct ap_hash_t *aphash = hash_ap(mac);
+	struct ap_hash_t *aphash = hash_ap((const unsigned char *)mac);
 	if (aphash) {
 		aphash->ap.sock = sock;
 		aphash->ap.last_seen = time(NULL);
@@ -171,7 +171,7 @@ void hash_ap_update_sock(char *mac, int sock)
  */
 void hash_ap_set_offline(char *mac)
 {
-	struct ap_hash_t *aphash = hash_ap(mac);
+	struct ap_hash_t *aphash = hash_ap((const unsigned char *)mac);
 	if (aphash) {
 		aphash->ap.sock = -1;
 		aphash->ap.status = AP_STATUS_OFFLINE;
@@ -219,8 +219,8 @@ int hash_ap_list_json(char *buf, int buflen)
 	for (int i = 0; i < AP_HASH_SIZE; i++) {
 		pthread_mutex_lock(&g_ap_table.lock);
 		struct ap_hash_t *aphash;
-		struct hlist_node *n;
-		hlist_for_each_entry(aphash, n,
+		struct hlist_node *node;
+		hlist_for_each_entry(aphash, node,
 			&g_ap_table.buckets[i],
 			node) {
 			if (aphash->ap.mac[0] == 0)
@@ -232,7 +232,7 @@ int hash_ap_list_json(char *buf, int buflen)
 				(aphash->ap.status == AP_STATUS_UPGRADING) ? "upgrading" :
 				"unknown";
 
-			n = snprintf(p, space,
+			int ret = snprintf(p, space,
 				"%s{\"mac\":\"" MAC_FMT
 				"\",\"status\":\"%s\",\"last_seen\":%ld",
 				first ? "" : ",",
@@ -241,11 +241,11 @@ int hash_ap_list_json(char *buf, int buflen)
 				aphash->ap.mac[4], aphash->ap.mac[5],
 				status_str, (long)aphash->ap.last_seen);
 
-			if (n < 0 || n >= space) {
+			if (ret < 0 || ret >= space) {
 				pthread_mutex_unlock(&g_ap_table.lock);
 				return -1;
 			}
-			p += n; space -= n; first = 0;
+			p += ret; space -= ret; first = 0;
 		}
 		pthread_mutex_unlock(&g_ap_table.lock);
 	}
@@ -266,8 +266,8 @@ void hash_ap_dump(void)
 	for (int i = 0; i < AP_HASH_SIZE; i++) {
 		pthread_mutex_lock(&g_ap_table.lock);
 		struct ap_hash_t *aphash;
-		struct hlist_node *n;
-		hlist_for_each_entry(aphash, n,
+		struct hlist_node *node;
+		hlist_for_each_entry(aphash, node,
 			&g_ap_table.buckets[i],
 			node) {
 			if (aphash->ap.mac[0] == 0)

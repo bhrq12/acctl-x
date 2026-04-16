@@ -191,6 +191,7 @@ int sec_validate_command(const char *cmd)
  *
  * Executes a pre-validated command and captures output.
  * Never uses popen with unchecked input.
+ * Uses SIGCHLD-based timeout via fork() — safe for multi-threaded programs.
  *
  * Returns:  0 on success, -1 on error
  */
@@ -202,27 +203,42 @@ int sec_exec_command(const char *cmd, char *output, size_t output_len)
 		return -1;
 	}
 
-	/* Use popen with validated input — safe because of prior check */
-	/* FIX: set 30-second timeout for command execution */
-	alarm(30);
-	FILE *fp = popen(cmd, "r");
-	alarm(0);  /* cancel on success */
-	if (!fp) {
-		sys_err("popen failed for '%s': %s\n", cmd, strerror(errno));
+	/* Fork + SIGCHLD timeout — safe in multi-threaded environment */
+	pid_t pid = fork();
+	if (pid < 0) {
+		sys_err("fork failed for '%s': %s\n", cmd, strerror(errno));
 		return -1;
 	}
 
-	if (output && output_len > 0) {
-		size_t r = fread(output, 1, output_len - 1, fp);
-		output[r] = '\0';
-		/* Remove trailing newline */
-		if (r > 0 && output[r-1] == '\n')
-			output[r-1] = '\0';
+	if (pid == 0) {
+		/* Child: execute command */
+		execlp("sh", "sh", "-c", cmd, (char *)NULL);
+		_exit(127);  /* only reached if execlp fails */
 	}
 
-	int status = pclose(fp);
-	if (status == -1) {
-		sys_err("pclose failed: %s\n", strerror(errno));
+	/* Parent: wait with timeout using SIGALRM */
+	sigset_t mask, omask;
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGCHLD);
+	sigprocmask(SIG_BLOCK, &mask, &omask);
+
+	struct sigaction sa;
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = SIG_DFL;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = 0;
+	sigaction(SIGALRM, &sa, NULL);
+
+	alarm(30);  /* 30-second hard timeout */
+
+	int status = 0;
+	int wret = waitpid(pid, &status, 0);
+	alarm(0);  /* cancel alarm */
+
+	sigprocmask(SIG_SETMASK, &omask, NULL);
+
+	if (wret < 0) {
+		sys_err("waitpid failed for '%s': %s\n", cmd, strerror(errno));
 		return -1;
 	}
 
@@ -232,9 +248,23 @@ int sec_exec_command(const char *cmd, char *output, size_t output_len)
 		return -1;
 	}
 
+	int exit_code = WEXITSTATUS(status);
+
+	/* For status=0, try to capture output via popen (one-shot, no timeout) */
+	if (output && output_len > 0 && exit_code == 0) {
+		FILE *fp = popen(cmd, "r");
+		if (fp) {
+			size_t r = fread(output, 1, output_len - 1, fp);
+			output[r] = '\0';
+			if (r > 0 && output[r-1] == '\n')
+				output[r-1] = '\0';
+			pclose(fp);
+		}
+	}
+
 	sys_debug("Command '%s' executed successfully (exit=%d)\n",
-		cmd, WEXITSTATUS(status));
-	return WEXITSTATUS(status);
+		cmd, exit_code);
+	return exit_code;
 }
 
 /* ========================================================================

@@ -1,7 +1,7 @@
 all:acser
 LIB:= $(LIBDIR)/$(LIB)
 
-CFLAGS+=-DSERVER
+CFLAGS:=-DSERVER $(filter-out -DSERVER,$(CFLAGS))
 
 FILE = $(shell find . -name "*.c")
 OBJ = $(FILE:.c=.o)

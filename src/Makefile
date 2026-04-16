@@ -42,7 +42,6 @@ export CC LD AR INSTALL TARGET
 
 INC = -I$(TOPDIR)/include
 CFLAGS = -Wall -Wno-unused-function -O2 $(INC)
-CFLAGS += -g -DDEBUG
 LDFLAGS = -lpthread
 export CFLAGS LDFLAGS
 

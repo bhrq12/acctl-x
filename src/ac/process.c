@@ -533,6 +533,7 @@ void ap_lost(int sock)
 	/* Find AP by socket and snapshot its MAC */
 	for (int i = 0; i < AP_HASH_SIZE; i++) {
 		struct ap_hash_t *aphash;
+		struct hlist_node *n;
 		hlist_for_each_entry(aphash, n, &g_ap_table.buckets[i], node) {
 			if (aphash->ap.sock == sock) {
 				/* Copy MAC before releasing lock */
@@ -581,6 +582,7 @@ int is_mine(struct msg_head_t *msg, int len)
 void msg_proc(struct ap_hash_t *aphash,
 	void *data, int len, int proto)
 {
+	struct msg_head_t *msg = data;
 	if (!is_mine(msg, len))
 		return;
 

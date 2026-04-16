@@ -34,8 +34,7 @@
 
 #include "log.h"
 #include "dllayer.h"
-#include "linux/if_packet.h"
-#include "netinet/in.h"
+#include <netinet/in.h>
 
 struct dlleth_t {
 	struct ethhdr 	hdr;

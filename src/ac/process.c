@@ -60,7 +60,7 @@ static int __uuid_equ(const char *src, const char *dest)
 }
 
 /*
- * __get_cmd_output â€?read stdout of a command into a buffer
+ * __get_cmd_output ï¿½?read stdout of a command into a buffer
  *   Returns number of bytes read, or -1 on error.
  */
 static int __get_cmd_output(const char *cmd, char *buf, size_t buflen)
@@ -86,14 +86,14 @@ static int __get_cmd_output(const char *cmd, char *buf, size_t buflen)
 }
 
 /*
- * __exec_command_safe â€?execute AC command on AP with full security
+ * __exec_command_safe ï¿½?execute AC command on AP with full security
  *
  * Security layers (all must pass):
  *   1. Rate limiting (per MAC)
  *   2. Command whitelist validation
  *   3. Timeout protection (SIGALRM after 30s)
  *
- * The command runs on the AP side (apctl process) â€?this function
+ * The command runs on the AP side (apctl process) ï¿½?this function
  * constructs the command packet for the AP to execute.
  *
  * Returns:  0 on success (command packet sent)
@@ -120,7 +120,7 @@ static int __exec_command_safe(struct ap_t *ap, const char *cmd)
 		return -1;
 	}
 
-	/* Command is safe â€?send to AP via TCP */
+	/* Command is safe ï¿½?send to AP via TCP */
 	sys_debug("Command approved for AP "
 		MAC_FMT": %s\n",
 		ap->mac[0], ap->mac[1], ap->mac[2],
@@ -135,7 +135,7 @@ static int __exec_command_safe(struct ap_t *ap, const char *cmd)
  * ======================================================================== */
 
 /*
- * __ap_status â€?handle AP status report message
+ * __ap_status ï¿½?handle AP status report message
  *
  * Extracts system information from AP status payload and updates DB.
  * If AP requests a command result (from previous exec), captures it.
@@ -158,33 +158,63 @@ static void __ap_status(struct ap_t *ap, struct msg_ap_status_t *msg, int len)
 	struct apstatus_t *status = (struct apstatus_t *)
 		((char *)msg + sizeof(struct msg_ap_status_t));
 
-	/* Update AP last-seen timestamp */
 	ap->last_seen = time(NULL);
 	ap->status = AP_STATUS_ONLINE;
 
-	/* Extract SSID info if present */
-	if (status->ssidnum > 0 && status->ssid0.ssid[0] != '\0') {
-		strncpy(ap->wifi_ssid, status->ssid0.ssid,
-			sizeof(ap->wifi_ssid) - 1);
-		sys_debug("  SSID[0]: %s (power=%d)\n",
-			status->ssid0.ssid, status->ssid0.power);
+	int total_clients = 0;
+	char primary_ssid[64] = {0};
+
+	for (int i = 0; i < status->ssidnum && i < MAX_TOTAL_SSIDS; i++) {
+		struct ssid_info *si = &status->ssids[i];
+		total_clients += si->clients;
+
+		if (i == 0 && si->ssid[0] != '\0') {
+			strncpy(primary_ssid, si->ssid, sizeof(primary_ssid) - 1);
+			strncpy(ap->wifi_ssid, si->ssid, sizeof(ap->wifi_ssid) - 1);
+		}
+
+		sys_debug("  SSID[%d]: %s (band=%s, ch=%d, power=%d, clients=%d, proto=%d, enabled=%d)\n",
+			i, si->ssid, si->band, si->channel, si->power,
+			si->clients, si->protocol, si->enabled);
 	}
 
-	/* Update database with latest AP info */
-	/* Extract wifi_ssid from status payload (not the stale hash entry) */
-	char db_wifi_ssid[64] = {0};
-	strncpy(db_wifi_ssid, status->ssid0.ssid, sizeof(db_wifi_ssid) - 1);
+	ap->online_users = total_clients;
 
-	/* Update hash entry fields for future use */
-	ap->online_users = (status->ssidnum > 0) ? status->ssidnum : 0;
-	strncpy(ap->wifi_ssid, db_wifi_ssid, sizeof(ap->wifi_ssid) - 1);
+	size_t ssids_json_size = 512 + (status->ssidnum * 256);
+	char *ssids_json = malloc(ssids_json_size);
+	if (ssids_json) {
+		char *p = ssids_json;
+		int offset = 0;
+		offset += snprintf(p + offset, ssids_json_size - offset,
+			"{\"online_user_num\":%d,\"ssid_count\":%d,\"ssids\":[",
+			total_clients, status->ssidnum);
 
-	char json_buf[512];
-	snprintf(json_buf, sizeof(json_buf),
-		"{\"online_user_num\":%d,\"wifi_ssid\":\"%s\"}",
-		ap->online_users, db_wifi_ssid);
-	sql_ap_upsert(ap->mac, ap->hostname, ap->wan_ip,
-		db_wifi_ssid, ap->firmware, ap->online_users, json_buf);
+		for (int i = 0; i < status->ssidnum && i < MAX_TOTAL_SSIDS; i++) {
+			struct ssid_info *si = &status->ssids[i];
+			if (i > 0) offset += snprintf(p + offset, ssids_json_size - offset, ",");
+			offset += snprintf(p + offset, ssids_json_size - offset,
+				"{\"ssid\":\"%s\",\"band\":\"%s\",\"channel\":%d,"
+				"\"signal\":%d,\"clients\":%d,\"protocol\":%d,\"enabled\":%d}",
+				si->ssid, si->band, si->channel,
+				si->power, si->clients, si->protocol, si->enabled);
+		}
+
+		offset += snprintf(p + offset, ssids_json_size - offset, "]}");
+
+		sql_ap_upsert(ap->mac, ap->hostname, ap->wan_ip,
+			primary_ssid[0] ? primary_ssid : ap->wifi_ssid,
+			ap->firmware, total_clients, ssids_json);
+
+		free(ssids_json);
+	} else {
+		char json_buf[512];
+		snprintf(json_buf, sizeof(json_buf),
+			"{\"online_user_num\":%d,\"ssid_count\":%d}",
+			total_clients, status->ssidnum);
+		sql_ap_upsert(ap->mac, ap->hostname, ap->wan_ip,
+			primary_ssid[0] ? primary_ssid : ap->wifi_ssid,
+			ap->firmware, total_clients, json_buf);
+	}
 
 	/* Check for command result data appended after apstatus_t */
 	size_t extra_len = (size_t)len - sizeof(*msg) - sizeof(struct apstatus_t);
@@ -215,7 +245,7 @@ static void __ap_status(struct ap_t *ap, struct msg_ap_status_t *msg, int len)
  * ======================================================================== */
 
 /*
- * __ap_reg â€?handle AP registration request
+ * __ap_reg ï¿½?handle AP registration request
  *
  * Protocol:
  *   AP sends: md5(packet_without_chap + random0_from_AC + password)
@@ -264,7 +294,7 @@ static void __ap_reg(struct ap_hash_t *aphash,
 		return;
 	}
 
-	/* 3. Replay protection â€?random must be recent and unique */
+	/* 3. Replay protection ï¿½?random must be recent and unique */
 	int replay_ret = sec_check_replay(ac.random, time(NULL));
 	if (replay_ret != 0) {
 		sys_err("Replay attack detected for %s\n", mac_str);
@@ -278,7 +308,7 @@ static void __ap_reg(struct ap_hash_t *aphash,
 			other_ac_uuid, sizeof(other_ac_uuid)) == 0 &&
 		other_ac_uuid[0] != '\0' &&
 		!__uuid_equ(other_ac_uuid, ac.acuuid)) {
-		/* AP was registered to another AC â€?this may be a takeover attempt.
+		/* AP was registered to another AC ï¿½?this may be a takeover attempt.
 		 * Verify AC trust before allowing re-registration. */
 		sys_warn("AP %s attempting re-registration from different AC\n",
 			mac_str);
@@ -300,10 +330,10 @@ static void __ap_reg(struct ap_hash_t *aphash,
 	/* Check if requested IP conflicts with existing allocation */
 	if (msg->ipv4.sin_addr.s_addr != 0) {
 		if (res_ip_conflict(&msg->ipv4, msg->header.mac) == 0) {
-			/* No conflict â€?AP's requested IP is fine */
+			/* No conflict ï¿½?AP's requested IP is fine */
 			alloc_addr = &msg->ipv4;
 		} else {
-			/* Conflict â€?try to allocate from pool */
+			/* Conflict ï¿½?try to allocate from pool */
 			sys_warn("IP conflict for %s, allocating from pool\n",
 				mac_str);
 		}
@@ -456,7 +486,7 @@ static void *ap_heartbeat_check(void *arg)
  * AC identity initialization
  * ======================================================================== */
 
-/* AC identity â€?declared in process.h */
+/* AC identity ï¿½?declared in process.h */
 struct ac_t ac;
 
 void ac_init(void)
@@ -566,7 +596,7 @@ int is_mine(struct msg_head_t *msg, int len)
 		return 0;
 	}
 
-	/* MSG_AP_RESP means AP is registered to another AC â€?filter it out */
+	/* MSG_AP_RESP means AP is registered to another AC ï¿½?filter it out */
 	if (msg->msg_type == MSG_AP_RESP &&
 		!__uuid_equ(msg->acuuid, ac.acuuid)) {
 		sys_debug("MSG_AP_RESP from other AC (%.36s)\n",
@@ -600,7 +630,7 @@ void msg_proc(struct ap_hash_t *aphash,
 		break;
 
 	case MSG_AP_RESP:
-		/* AP is already registered to another AC â€?informational */
+		/* AP is already registered to another AC ï¿½?informational */
 		sys_debug("AP already registered to AC: %.36s\n",
 			msg->acuuid);
 		break;

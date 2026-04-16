@@ -11,8 +11,8 @@ define Package/acctl
   CATEGORY:=Network
   SUBMENU:=Access Points/Controllers
   TITLE:=OpenWrt AC Controller v2.0
-  DEPENDS:=+libuci-lua +libjson-c
-  URL:=https://github.com/yourname/acctl
+  DEPENDS:=+libuci-lua +libjson-c +libpthread
+  URL:=https://github.com/bhrq12/acctl
   MAINTAINER:=jianxi sun <ycsunjane@gmail.com>
 endef
 
@@ -36,10 +36,6 @@ define Package/acctl/conffiles
 /etc/config/acctl
 endef
 
-# BuildPrepare copies source into staging directory with proper layout:
-#   src/    -> $(PKG_BUILD_DIR)/src/
-#   luci/   -> $(PKG_BUILD_DIR)/luci/
-#   files/  -> $(PKG_BUILD_DIR)/files/
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
 	$(CP) ./src   $(PKG_BUILD_DIR)/
@@ -51,14 +47,10 @@ define Build/Configure
 endef
 
 define Build/Compile
-	# Build shared library + both binaries via the lib Makefile
 	$(MAKE) -C $(PKG_BUILD_DIR)/src/lib \
 		CC="$(TARGET_CC)" \
-		CFLAGS="$(TARGET_CFLAGS) -I$(PKG_BUILD_DIR)/src/include \
-			-I$(STAGING_DIR)/usr/include \
-			-DDEBUG -Wall -Wextra" \
-		LDFLAGS="$(TARGET_LDFLAGS) -L$(STAGING_DIR)/usr/lib \
-			-lpthread -lm -ljson-c" \
+		CFLAGS="$(TARGET_CFLAGS) -I$(PKG_BUILD_DIR)/src/include -Wall -Wextra" \
+		LDFLAGS="$(TARGET_LDFLAGS) -lpthread -lm -ljson-c" \
 		all
 endef
 

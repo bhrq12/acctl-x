@@ -371,17 +371,6 @@ function api_cmd()
     end
 
     -- Exact whitelist match
-    local allowed = {
-        ["reboot"]             = true,
-        ["uptime"]             = true,
-        ["ifconfig"]           = true,
-        ["iwconfig"]           = true,
-        ["wifi"]               = true,
-        ["cat /proc/uptime"]   = true,
-        ["cat /proc/loadavg"]  = true,
-        ["cat /tmp/ap_status"] = true,
-    }
-
     local found = allowed[cmd] == true
 
     if not found then

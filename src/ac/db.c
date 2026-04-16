@@ -517,9 +517,10 @@ int db_ap_upsert(const char *mac, const char *hostname,
 
     time_t now = time(NULL);
 
-    /* Parse extra_json for runtime fields */
     int db_online_users = online_users;
     char db_wifi_ssid[64] = {0};
+    int ssid_count = 0;
+    json_object *ssids_array = NULL;
 
     if (extra_json && extra_json[0] != '\0') {
         json_object *ej = json_tokener_parse(extra_json);
@@ -536,19 +537,26 @@ int db_ap_upsert(const char *mac, const char *hostname,
                     db_wifi_ssid[sizeof(db_wifi_ssid) - 1] = '\0';
                 }
             }
+            json_object *ssc;
+            if (json_object_object_get_ex(ej, "ssid_count", &ssc)) {
+                ssid_count = json_object_get_int(ssc);
+            }
+            json_object *ssids;
+            if (json_object_object_get_ex(ej, "ssids", &ssids) &&
+                json_object_is_type(ssids, json_type_array)) {
+                ssids_array = json_object_get(ssids);
+            }
         }
         if (ej) json_object_put(ej);
     }
 
     if (!node) {
-        /* Insert new */
         node = json_object_new_object();
         json_object_object_add(node, "mac",       json_object_new_string(mac));
         json_object_object_add(node, "time_first",json_object_new_int64(now));
         json_object_array_add(nodes, node);
     }
 
-    /* Update fields */
     if (hostname)    set_str(node, "hostname",      hostname);
     if (wan_ip)     set_str(node, "wan_ip",         wan_ip);
 
@@ -560,10 +568,14 @@ int db_ap_upsert(const char *mac, const char *hostname,
     if (firmware)   set_str(node, "firmware",       firmware);
 
     set_int(node,   "online_user_num", db_online_users);
+    set_int(node,   "ssid_count",     ssid_count);
     set_int(node,   "device_down",    0);
     set_int64(node, "last_seen",      (int64_t)now);
 
-    /* time field: format as ISO timestamp for compatibility */
+    if (ssids_array) {
+        json_object_object_add(node, "ssids", ssids_array);
+    }
+
     char ts[64];
     struct tm *tm_info = localtime(&now);
     strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", tm_info);

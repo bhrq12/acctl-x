@@ -31,6 +31,12 @@ config acctl 'acctl'
 	# Debug mode (1=yes, 0=no)
 	option debug       '0'
 
+	# Multi-SSID support (1=yes, 0=no)
+	option multi_ssid   '1'
+
+	# Default band for new SSIDs: 2.4GHz, 5GHz, or auto
+	option default_band 'auto'
+
 ###############################################################################
 # IP Address Pool Configuration
 # Managed via database: INSERT INTO resource VALUES ('192.168.100.1', '192.168.100.254', '255.255.255.0');
@@ -39,23 +45,59 @@ config acctl 'acctl'
 ###############################################################################
 # AP Default Configuration Template
 # Multiple profiles supported: profile 'office', 'warehouse', 'guest', etc.
+# Each profile can contain multiple SSIDs with independent settings
 ###############################################################################
 
-config node_default 'profile_office'
-	list    ssid      'Office-WiFi'
-	option  encryption 'psk2'
-	option  key       'changeme123'
-	option  channel_mode '11n'
-	option  channel   'auto'
-	option  signal    'auto'
+config profile 'profile_office'
+	option name     'Office Network'
+	option desc     'Corporate office WiFi configuration'
 
-config node_default 'profile_guest'
-	list    ssid      'Guest-WiFi'
-	option  encryption 'psk2'
-	option  key       'guest_wifi_2024'
-	option  channel_mode '11g'
-	option  channel   '6'
-	option  signal    '80'
+	# Primary 2.4GHz SSID
+	list ssid_2g    'Office-2G'
+	option enc_2g   'psk2'
+	option key_2g   'changeme123'
+	option channel_2g 'auto'
+	option mode_2g  'n'
+	option power_2g 'auto'
+
+	# Primary 5GHz SSID
+	list ssid_5g    'Office-5G'
+	option enc_5g   'psk2'
+	option key_5g   'changeme123'
+	option channel_5g 'auto'
+	option mode_5g  'ac'
+	option power_5g 'auto'
+
+config profile 'profile_guest'
+	option name     'Guest Network'
+	option desc     'Guest WiFi with limited access'
+
+	list ssid_2g    'Guest-2G'
+	list ssid_5g    'Guest-5G'
+	option enc_2g   'psk2'
+	option enc_5g   'psk2'
+	option key_2g   'guest_wifi_2024'
+	option key_5g   'guest_wifi_2024'
+	option channel_2g '6'
+	option channel_5g '149'
+	option mode_2g  'g'
+	option mode_5g  'ac'
+	option power_2g '80'
+	option power_5g '100'
+
+config profile 'profile_iot'
+	option name     'IoT Network'
+	option desc     'Internet of Things devices'
+
+	list ssid_2g    'IoT-Devices'
+	list ssid_5g    'IoT-5G'
+	option enc_2g   'wpa2'
+	option enc_5g   'wpa2'
+	option key_2g   'iot_secure_pass'
+	option key_5g   'iot_secure_pass'
+	option mode_2g  'n'
+	option mode_5g  'ac'
+	option isolate  '1'
 
 ###############################################################################
 # AP Pre-Configuration (MAC-based)
@@ -110,4 +152,20 @@ config alarm 'user_overload'
 	option threshold  '50'
 	option window     '60'
 	option cooldown   '3600'
+	option enabled    '0'
+
+config alarm 'ssid_down'
+	option name       'SSID Down'
+	option level      '2'
+	option threshold  '1'
+	option window     '60'
+	option cooldown   '300'
+	option enabled    '1'
+
+config alarm 'client_overload'
+	option name       'Client Overload'
+	option level      '1'
+	option threshold  '100'
+	option window     '300'
+	option cooldown   '1800'
 	option enabled    '0'

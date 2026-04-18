@@ -3,7 +3,7 @@
  *
  *       Filename:  sec.c
  *
- *    Description:  Security layer �?command validation, rate limiting,
+ *    Description:  Security layer â€?command validation, rate limiting,
  *                  replay protection, and AC identity verification.
  *                  This is the core of the security hardening.
  *
@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <pthread.h>
+#include <signal.h>
 #include <sys/time.h>
 #include <time.h>
 #include <regex.h>
@@ -117,7 +118,7 @@ static const char *dangerous_patterns[] = {
 };
 
 /*
- * sec_validate_command �?whitelist-based command validation
+ * sec_validate_command â€?whitelist-based command validation
  *
  * Rules:
  *   1. Command must match a known safe prefix
@@ -159,7 +160,7 @@ int sec_validate_command(const char *cmd)
 	for (i = 0; cmd_whitelist[i].prefix; i++) {
 		if (strncmp(cmd, cmd_whitelist[i].prefix,
 			    cmd_whitelist[i].prefix_len) == 0) {
-			/* Found in whitelist �?verify argument count */
+			/* Found in whitelist â€?verify argument count */
 			const char *args = cmd + cmd_whitelist[i].prefix_len;
 			while (*args == ' ') args++;
 			int argc = (*args == '\0') ? 0 : 1;
@@ -187,11 +188,11 @@ int sec_validate_command(const char *cmd)
 }
 
 /*
- * sec_exec_command �?safe command execution
+ * sec_exec_command â€?safe command execution
  *
  * Executes a pre-validated command and captures output.
  * Never uses popen with unchecked input.
- * Uses SIGCHLD-based timeout via fork() �?safe for multi-threaded programs.
+ * Uses SIGCHLD-based timeout via fork() â€?safe for multi-threaded programs.
  *
  * Returns:  0 on success, -1 on error
  */
@@ -203,7 +204,7 @@ int sec_exec_command(const char *cmd, char *output, size_t output_len)
 		return -1;
 	}
 
-	/* Fork + SIGCHLD timeout �?safe in multi-threaded environment */
+	/* Fork + SIGCHLD timeout â€?safe in multi-threaded environment */
 	pid_t pid = fork();
 	if (pid < 0) {
 		sys_err("fork failed for '%s': %s\n", cmd, strerror(errno));
@@ -268,7 +269,7 @@ int sec_exec_command(const char *cmd, char *output, size_t output_len)
 }
 
 /* ========================================================================
- * 2. Replay protection �?sliding window of used random+timestamp pairs
+ * 2. Replay protection â€?sliding window of used random+timestamp pairs
  * ======================================================================== */
 
 #define REPLAY_TABLE_SIZE  (4096)
@@ -285,7 +286,7 @@ static pthread_mutex_t replay_lock = PTHREAD_MUTEX_INITIALIZER;
 static int replay_next = 0;  /* circular write pointer */
 
 /*
- * sec_check_replay �?check if a random number was recently used
+ * sec_check_replay â€?check if a random number was recently used
  *
  * Uses a simple sliding window table to detect replay attacks.
  * Every random+timestamp pair is unique and can't be reused within
@@ -325,7 +326,7 @@ unlock:
 }
 
 /*
- * sec_record_random �?record a random number as used
+ * sec_record_random â€?record a random number as used
  */
 void sec_record_random(uint32_t random)
 {
@@ -338,7 +339,7 @@ void sec_record_random(uint32_t random)
 }
 
 /* ========================================================================
- * 3. Rate limiting �?per-AP and global rate tracking
+ * 3. Rate limiting â€?per-AP and global rate tracking
  * ======================================================================== */
 
 #define RATE_TABLE_SIZE  (256)
@@ -363,7 +364,7 @@ static int rate_bucket(const char *mac)
 }
 
 /*
- * sec_rate_check �?enforce per-AP rate limiting
+ * sec_rate_check â€?enforce per-AP rate limiting
  *
  * Limits:
  *   - Max 60 registrations per minute per AP
@@ -420,19 +421,19 @@ int sec_rate_check(const char *mac, int type)
 }
 
 /* ========================================================================
- * 4. AC identity verification �?prevent AP takeover
+ * 4. AC identity verification â€?prevent AP takeover
  * ======================================================================== */
 
 /* List of trusted AC MAC addresses (whitelist) */
 #define TRUSTED_AC_MAX  (8)
 static struct {
-	char mac[TRUSTED_AC_MAX][ETH_ALEN];  /* FIX: was char[ETH_ALEN] �?only stored 1 AC */
+	char mac[TRUSTED_AC_MAX][ETH_ALEN];  /* FIX: was char[ETH_ALEN] â€?only stored 1 AC */
 	int  count;
 } trusted_ac_list;
 static pthread_mutex_t ac_trust_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /*
- * sec_ac_trust_add �?add an AC MAC to the trusted whitelist
+ * sec_ac_trust_add â€?add an AC MAC to the trusted whitelist
  */
 void sec_ac_trust_add(const char *mac)
 {
@@ -458,7 +459,7 @@ void sec_ac_trust_add(const char *mac)
 }
 
 /*
- * sec_ac_is_trusted �?check if an AC MAC is in the trusted whitelist
+ * sec_ac_is_trusted â€?check if an AC MAC is in the trusted whitelist
  *
  * Returns:  1 = trusted
  *          0 = not trusted (should be rejected for takeover)
@@ -486,9 +487,9 @@ int sec_ac_is_trusted(const char *mac)
  * ======================================================================== */
 
 /*
- * sec_get_random_bytes �?fill buffer with cryptographic random bytes
+ * sec_get_random_bytes â€?fill buffer with cryptographic random bytes
  *   Uses /dev/urandom (blocking acceptable here since it's called
- *   rarely �?only for key generation, not per-packet)
+ *   rarely â€?only for key generation, not per-packet)
  *
  * Returns:  0 on success, -1 on error
  */
@@ -513,7 +514,7 @@ int sec_get_random_bytes(uint8_t *buf, size_t len)
  * ======================================================================== */
 
 /*
- * sec_compute_hmac �?compute HMAC-SHA256 over message data
+ * sec_compute_hmac â€?compute HMAC-SHA256 over message data
  *
  * Implements RFC 2104 HMAC using SHA-256:
  *   HMAC(K, m) = SHA256(K_opad || SHA256(K_ipad || m))
@@ -561,7 +562,7 @@ void sec_compute_hmac(const uint8_t *data, size_t len,
 }
 
 /*
- * sec_verify_hmac �?verify HMAC-SHA256 of a message
+ * sec_verify_hmac â€?verify HMAC-SHA256 of a message
  *   Returns 0 if valid, non-zero if tampered.
  */
 int sec_verify_hmac(const uint8_t *data, size_t len,

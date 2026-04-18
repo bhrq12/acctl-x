@@ -31,7 +31,7 @@ CLI    ?= 1
 
 .PHONY: all clean acser apctl acctl-cli libac.a
 
-all: $(SERVER:%=acser%) $(CLIENT:%=apctl%) $(CLI:%=acctl-cli%)
+all: $(if $(SERVER),acser) $(if $(CLIENT),apctl) $(if $(CLI),acctl-cli)
 
 # ============================================================================
 # Shared library sources (common + AC-specific)

@@ -34,14 +34,14 @@ CLI    ?= 1
 all: $(if $(SERVER),acser) $(if $(CLIENT),apctl) $(if $(CLI),acctl-cli)
 
 # ============================================================================
-# Shared library sources (common + AC-specific)
+# Shared library sources (common + AC-specific) - located in lib/
 # ============================================================================
-LIB_SRCS   = chap.c md5.c link.c thread.c sec.c sha256.c
-LIB_SRCS  += dllayer.c netlayer.c arg.c cfgarg.c cmdarg.c mjson.c
+LIB_SRCS   = lib/chap.c lib/md5.c lib/link.c lib/thread.c lib/sec.c lib/sha256.c
+LIB_SRCS  += lib/dllayer.c lib/netlayer.c lib/arg.c lib/cfgarg.c lib/cmdarg.c lib/mjson.c
 LIB_OBJS   = $(LIB_SRCS:.c=.o)
 
 # Generic .c -> .o (no SERVER/CLIENT flag)
-$(LIB_SRCS:.c=.o): %.o: %.c
+$(LIB_OBJS): lib/%.o: lib/%.c
 	$(CC) $(CFLAGS) -I$(INC_DIR) -c $< -o $@
 
 # ============================================================================
@@ -56,7 +56,6 @@ acser: LDFLAGS += -ljson-c
 acser: $(LIB_OBJS) $(AC_OBJS) libac.a
 	$(CC) $(filter-out -l%,$(LDFLAGS)) $^ -o $@ $(filter -l%,$(LDFLAGS))
 
-$(AC_OBJS): CFLAGS += -DSERVER
 $(AC_OBJS): %.o: %.c
 	$(CC) $(CFLAGS) -I$(INC_DIR) -c $< -o $@
 
@@ -70,7 +69,6 @@ apctl: CFLAGS += -DCLIENT
 apctl: $(LIB_OBJS) $(AP_OBJS) libac.a
 	$(CC) $(filter-out -l%,$(LDFLAGS)) $^ -o $@ $(filter -l%,$(LDFLAGS))
 
-$(AP_OBJS): CFLAGS += -DCLIENT
 $(AP_OBJS): %.o: %.c
 	$(CC) $(CFLAGS) -I$(INC_DIR) -c $< -o $@
 
@@ -84,10 +82,6 @@ acctl-cli: CFLAGS += -DCLI
 acctl-cli: LDFLAGS += -ljson-c
 acctl-cli: $(LIB_OBJS) $(CLI_OBJS) libac.a
 	$(CC) $(filter-out -l%,$(LDFLAGS)) $^ -o $@ $(filter -l%,$(LDFLAGS))
-
-$(CLI_OBJS): CFLAGS += -DCLI
-$(CLI_OBJS): %.o: %.c
-	$(CC) $(CFLAGS) -I$(INC_DIR) -c $< -o $@
 
 # ============================================================================
 # Static library

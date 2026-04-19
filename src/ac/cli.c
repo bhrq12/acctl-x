@@ -18,24 +18,59 @@
 #include <string.h>
 #include <json-c/json.h>
 #include <sys/types.h>
+#include <sys/file.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
 
 #define DB_PATH  "/etc/acctl/ac.json"
+#define LOCK_PATH  "/etc/acctl/ac.json.lock"
 #define OUT_MAX  (64 * 1024)
+
+static int lock_db(int lock_type)
+{
+    int fd = open(LOCK_PATH, O_CREAT | O_RDWR, 0644);
+    if (fd < 0) return -1;
+    struct flock fl;
+    memset(&fl, 0, sizeof(fl));
+    fl.l_type = lock_type;
+    fl.l_whence = SEEK_SET;
+    fl.l_start = 0;
+    fl.l_len = 0;
+    int ret = fcntl(fd, F_SETLKW, &fl);
+    if (ret < 0) { close(fd); return -1; }
+    return fd;
+}
+
+static void unlock_db(int fd)
+{
+    if (fd < 0) return;
+    struct flock fl;
+    memset(&fl, 0, sizeof(fl));
+    fl.l_type = F_UNLCK;
+    fl.l_whence = SEEK_SET;
+    fl.l_start = 0;
+    fl.l_len = 0;
+    fcntl(fd, F_SETLKW, &fl);
+    close(fd);
+}
 
 static json_object *load_db(void)
 {
+    int lockfd = lock_db(F_RDLCK);
     FILE *fp = fopen(DB_PATH, "r");
-    if (!fp) return NULL;
+    if (!fp) { unlock_db(lockfd); return NULL; }
 
     fseek(fp, 0, SEEK_END);
     long size = ftell(fp);
     fseek(fp, 0, SEEK_SET);
 
     char *buf = malloc(size + 1);
-    if (!buf) { fclose(fp); return NULL; }
+    if (!buf) { fclose(fp); unlock_db(lockfd); return NULL; }
     size = fread(buf, 1, size, fp);
     buf[size] = '\0';
     fclose(fp);
+    unlock_db(lockfd);
 
     json_object *obj = json_tokener_parse(buf);
     free(buf);
@@ -44,12 +79,15 @@ static json_object *load_db(void)
 
 static int save_db(json_object *root)
 {
+    int lockfd = lock_db(F_WRLCK);
+    if (lockfd < 0) return -1;
     FILE *fp = fopen(DB_PATH, "w");
-    if (!fp) return -1;
+    if (!fp) { unlock_db(lockfd); return -1; }
     const char *str = json_object_to_json_string_ext(root,
         JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_SPACED);
     fprintf(fp, "%s\n", str);
     fclose(fp);
+    unlock_db(lockfd);
     return 0;
 }
 
@@ -85,12 +123,20 @@ static int safe_get_int(json_object *obj, const char *key)
 	return 0;
 }
 
-/* Helper: get int as json string, returns "0" if missing */
+/* Helper: get int as json string, returns "0" if missing
+ * Uses static buffer — safe for single-threaded CLI use only. */
 static const char *safe_get_int_str(json_object *obj, const char *key)
 {
+	static char int_buf[32];
 	json_object *jv;
-	if (json_object_object_get_ex(obj, key, &jv) && jv)
-		return json_object_to_json_string(jv);
+	if (json_object_object_get_ex(obj, key, &jv) && jv) {
+		if (json_object_is_type(jv, json_type_int)) {
+			snprintf(int_buf, sizeof(int_buf), "%d", json_object_get_int(jv));
+			return int_buf;
+		}
+		/* If stored as string, return the string value directly */
+		return json_object_get_string(jv);
+	}
 	return "0";
 }
 
@@ -148,7 +194,8 @@ static int cmd_aps(int limit)
         if (i > 0) printf(",");
         printf("{\"mac\":\"%s\",\"hostname\":\"%s\",\"wan_ip\":\"%s\","
                "\"wifi_ssid\":\"%s\",\"firmware\":\"%s\","
-               "\"online_users\":%s,\"device_down\":%s,\"last_seen\":%s,\"group_id\":%s}",
+               "\"online_users\":%s,\"device_down\":%s,\"last_seen\":%s,\"group_id\":%s,"
+               "\"ssid_count\":%s,\"wifi_channel\":%s,\"wifi_encryption\":\"%s\"}",
             safe_get_str(n, "mac"),
             safe_get_str(n, "hostname"),
             safe_get_str(n, "wan_ip"),
@@ -157,7 +204,10 @@ static int cmd_aps(int limit)
             safe_get_int_str(n, "online_user_num"),
             safe_get_int_str(n, "device_down"),
             safe_get_int_str(n, "last_seen"),
-            safe_get_int_str(n, "group_id"));
+            safe_get_int_str(n, "group_id"),
+            safe_get_int_str(n, "ssid_count"),
+            safe_get_str(n, "wifi_channel"),
+            safe_get_str(n, "wifi_encryption"));
         count++;
     }
     printf("]}\n");
@@ -273,7 +323,6 @@ static int cmd_audit(const char *user, const char *action,
         int lid = safe_get_int(l, "id");
         if (lid > max_id) max_id = lid;
     }
-    json_object_put(json_object_object_get(log, "id"));
     json_object_object_add(log, "id", json_object_new_int(max_id + 1));
 
     json_object_array_add(logs, log);

@@ -5,7 +5,6 @@ Single-band AP compatibility
 ]]
 
 local sys       = require "luci.sys"
-local util      = require "luci.util"
 local luci_http = require "luci.http"
 
 m = Map("acctl", translate("AP List"),
@@ -26,72 +25,31 @@ local function get_aps()
 		end
 
 		local ssid_count = tonumber(t.ssid_count) or 0
-		local ssids_data = t.ssids or {}
-		local ssid_2g = ""
-		local ssid_5g = ""
-		local clients_2g = 0
-		local clients_5g = 0
-		local band_2g = ""
-		local band_5g = ""
-		local has_2g = false
-		local has_5g = false
-
-		for _, s in ipairs(ssids_data) do
-			local band = s.band or ""
-			if band:match("2.4") then
-				ssid_2g = s.ssid or ""
-				clients_2g = tonumber(s.clients) or 0
-				band_2g = band
-				has_2g = true
-			elseif band:match("5") then
-				ssid_5g = s.ssid or ""
-				clients_5g = tonumber(s.clients) or 0
-				band_5g = band
-				has_5g = true
-			elseif band == "" or band:match("Unknown") or not s.channel or s.channel == 0 then
-				if not has_2g and not has_5g then
-					ssid_2g = s.ssid or ""
-					clients_2g = tonumber(s.clients) or 0
-					has_2g = true
-				end
-			end
-		end
-
-		if ssid_count == 0 or (not has_2g and not has_5g) then
-			local wifi_ssid = t.wifi_ssid or ""
-			if wifi_ssid ~= "" and wifi_ssid ~= "OpenWrt-AP" then
-				ssid_2g = wifi_ssid
-				has_2g = true
-			end
-		end
-
-		local is_single_band = (has_2g and not has_5g) or (has_5g and not has_2g)
-		local band_type = "dual"
-		if is_single_band then
-			band_type = has_5g and "5GHz" or "2.4GHz"
+		local wifi_ssid = t.wifi_ssid or ""
+		local wifi_channel = t.wifi_channel or ""
+		local wifi_encryption = t.wifi_encryption or ""
+		local band_type = "2.4GHz"
+		if wifi_channel and wifi_channel ~= "" and tonumber(wifi_channel) and tonumber(wifi_channel) > 14 then
+			band_type = "5GHz"
+		elseif ssid_count > 1 then
+			band_type = "dual"
 		end
 
 		table.insert(aps, {
 			mac            = t.mac or "",
 			hostname       = t.hostname or "",
 			wan_ip         = t.wan_ip or "",
-			wifi_ssid      = t.wifi_ssid or "",
-			ssid_2g        = ssid_2g,
-			ssid_5g        = ssid_5g,
-			clients_2g     = clients_2g,
-			clients_5g     = clients_5g,
-			band_2g        = band_2g,
-			band_5g        = band_5g,
+			wifi_ssid      = wifi_ssid,
+			wifi_channel   = wifi_channel,
+			wifi_encryption = wifi_encryption,
 			ssid_count     = ssid_count,
 			band_type      = band_type,
-			is_single_band = is_single_band,
 			firmware       = t.firmware or "",
 			online_users   = tonumber(t.online_users) or 0,
 			device_down    = tonumber(t.device_down) or 1,
 			last_seen      = last_seen,
 			last_seen_str  = last_seen_str,
 			group_id       = tonumber(t.group_id) or 0,
-			ssids_data     = ssids_data
 		})
 	end
 	return aps
@@ -105,7 +63,7 @@ s:option(DummyValue, "mac", translate("MAC Address"))
 s:option(DummyValue, "hostname", translate("Hostname"))
 
 status_col = s:option(DummyValue, "device_down", translate("Status"))
-status_col.template = "acctl/ap_status"
+status_col.template = "acctl/ap_status_badge"
 
 s:option(DummyValue, "wan_ip", translate("WAN IP"))
 
@@ -117,8 +75,7 @@ band_col.template = "acctl/ap_band"
 
 s:option(DummyValue, "firmware", translate("Firmware"))
 
-users_col = s:option(DummyValue, "online_users", translate("Users"))
-users_col.template = "acctl/ap_users"
+s:option(DummyValue, "online_users", translate("Users"))
 
 s:option(DummyValue, "last_seen_str", translate("Last Seen"))
 

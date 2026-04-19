@@ -1,10 +1,10 @@
-/*
+﻿/*
  * ============================================================================
  *
  *       Filename:  main.c
  *
  *    Description:  AC Controller server main entry point.
- *                  - Initializes SQLite database
+ *                  - Initializes JSON file database
  *                  - Loads configuration from UCI
  *                  - Starts IP pool manager
  *                  - Generates AC UUID
@@ -15,7 +15,7 @@
  *
  *        Version:  2.0
  *        Created:  2026-04-12
- *       Revision:  complete rewrite — daemon mode, signal handling, UCI config
+ *       Revision:  complete rewrite 鈥?daemon mode, signal handling, UCI config
  *       Compiler:  gcc
  *
  *         Author:  jianxi sun (jianxi), ycsunjane@gmail.com
@@ -50,7 +50,7 @@
 volatile int g_running = 1;  /* global shutdown flag */
 
 /*
- * Signal handler — graceful shutdown
+ * Signal handler 鈥?graceful shutdown
  */
 static void signal_handler(int sig)
 {
@@ -61,7 +61,7 @@ static void signal_handler(int sig)
 }
 
 /*
- * daemonize — fork into background if not in debug mode
+ * daemonize 鈥?fork into background if not in debug mode
  */
 static void daemonize(void)
 {
@@ -80,7 +80,7 @@ static void daemonize(void)
 	if (pid > 0)
 		exit(0);  /* parent exits */
 
-	/* Child continues — become session leader */
+	/* Child continues 鈥?become session leader */
 	if (setsid() < 0) {
 		fprintf(stderr, "setsid() failed: %s\n", strerror(errno));
 		exit(-1);
@@ -115,16 +115,16 @@ static void daemonize(void)
 static void print_banner(void)
 {
 	printf("\n");
-	printf("  ╔═══════════════════════════════════════════╗\n");
-	printf("  ║       OpenWrt AC Controller  v2.0        ║\n");
-	printf("  ║       Build: %-29s║\n", __DATE__);
-	printf("  ║       DB: %s                     ║\n", DBNAME);
-	printf("  ╚═══════════════════════════════════════════╝\n");
+	printf("  鈺斺晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺梊n");
+	printf("  鈺?      OpenWrt AC Controller  v2.0        鈺慭n");
+	printf("  鈺?      Build: %-29s鈺慭n", __DATE__);
+	printf("  鈺?      DB: %s                     鈺慭n", DBNAME);
+	printf("  鈺氣晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺漒n");
 	printf("\n");
 }
 
 /*
- * check_prerequisites — verify required files and directories exist
+ * check_prerequisites 鈥?verify required files and directories exist
  */
 static int check_prerequisites(void)
 {
@@ -139,14 +139,14 @@ static int check_prerequisites(void)
 
 	/* Ensure database file parent directory exists */
 	if (strncmp(DBNAME, "/etc/acctl/", 11) == 0) {
-		/* Database goes in /etc/acctl — already created above */
+		/* Database goes in /etc/acctl 鈥?already created above */
 	}
 
 	return 0;
 }
 
 /*
- * print_status — dump current system status
+ * print_status 鈥?dump current system status
  */
 static void print_status(void)
 {
@@ -161,7 +161,7 @@ static void print_status(void)
 }
 
 /*
- * cleanup — release all resources on shutdown
+ * cleanup 鈥?release all resources on shutdown
  */
 static void cleanup(void)
 {
@@ -175,7 +175,7 @@ static void cleanup(void)
 	if (ippool)
 		res_ip_clear();
 
-	/* Note: hash table entries are leaked on exit — acceptable for
+	/* Note: hash table entries are leaked on exit 鈥?acceptable for
 	 * daemon mode since they persist across reloads */
 
 	closelog();

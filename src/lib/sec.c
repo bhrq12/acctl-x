@@ -40,24 +40,33 @@
  * 1. Command whitelist validation (prevents command injection)
  * ======================================================================== */
 
-/* Allowed command categories with their prefixes and max lengths */
+/* Allowed command categories with their prefixes and max lengths.
+ * NOTE: Commands containing path separators are handled specially —
+ * the dangerous pattern check skips patterns that appear within a
+ * whitelisted prefix. The prefix match must be EXACT — the command
+ * must equal the prefix (plus allowed arguments). */
 static const struct cmd_whitelist_entry {
 	const char *prefix;
 	size_t prefix_len;
 	int   min_args;
 	int   max_args;
+	/* If set, this prefix contains characters that would normally
+	 * trigger the dangerous pattern check (e.g. "/proc/"). The
+	 * dangerous pattern check will skip these patterns when the
+	 * command starts with this exact prefix. */
+	int   contains_path;
 } cmd_whitelist[] = {
-	{ "reboot",             6, 0, 0 },
-	{ "wifi",               4, 0, 2 },
-	{ "uptime",             6, 0, 0 },
-	{ "ifconfig",           8, 0, 1 },
-	{ "iwconfig",           8, 0, 1 },
-	{ "iw dev",             7, 0, 2 },
-	{ "cat /proc/uptime",  16, 0, 0 },
-	{ "cat /proc/loadavg", 17, 0, 0 },
-	{ "cat /tmp/ap_status",17, 0, 0 },
-	{ "logger",             6, 1, 2 },  /* logger "message" */
-	{ NULL, 0, 0, 0 }                  /* sentinel */
+	{ "reboot",             6, 0, 0, 0 },
+	{ "wifi",               4, 0, 2, 0 },
+	{ "uptime",             6, 0, 0, 0 },
+	{ "ifconfig",           8, 0, 1, 0 },
+	{ "iwconfig",           8, 0, 1, 0 },
+	{ "iw dev",             7, 0, 2, 0 },
+	{ "cat /proc/uptime",  16, 0, 0, 1 },
+	{ "cat /proc/loadavg", 17, 0, 0, 1 },
+	{ "cat /tmp/ap_status",17, 0, 0, 1 },
+	{ "logger",             6, 1, 2, 0 },
+	{ NULL, 0, 0, 0, 0 }                  /* sentinel */
 };
 
 /* Dangerous patterns that must NEVER appear in commands */
@@ -147,9 +156,43 @@ int sec_validate_command(const char *cmd)
 		return -3;
 	}
 
-	/* Check against whitelist FIRST — whitelisted commands bypass
-	 * dangerous pattern check (e.g. "cat /proc/uptime" contains "/proc/"
-	 * but is explicitly allowed) */
+	/* SECURITY: Always check for dangerous patterns, even for
+	 * whitelisted commands. A whitelisted prefix like "wifi" must not
+	 * allow "wifi;rm -rf /" — the semicolon is always dangerous.
+	 *
+	 * Exception: patterns that appear within a whitelisted prefix
+	 * (e.g. "/proc/" in "cat /proc/uptime") are allowed ONLY when
+	 * the command exactly starts with that prefix. We check this
+	 * by first determining if the command matches any whitelisted
+	 * prefix that contains a path. */
+	int prefix_has_path = 0;
+	for (i = 0; cmd_whitelist[i].prefix; i++) {
+		if (cmd_whitelist[i].contains_path &&
+		    strncmp(cmd, cmd_whitelist[i].prefix,
+			    cmd_whitelist[i].prefix_len) == 0) {
+			prefix_has_path = 1;
+			break;
+		}
+	}
+
+	for (i = 0; dangerous_patterns[i]; i++) {
+		/* Skip patterns that appear within the whitelisted prefix */
+		if (prefix_has_path) {
+			const char *p = strstr(cmd, dangerous_patterns[i]);
+			if (p && p < cmd + cmd_whitelist[i].prefix_len) {
+				/* Pattern is within the prefix — skip this check */
+				continue;
+			}
+		}
+		if (strstr(cmd, dangerous_patterns[i])) {
+			sys_warn("Command blocked: contains dangerous pattern '%s'\n",
+				dangerous_patterns[i]);
+			return -1;
+		}
+	}
+
+	/* Check against whitelist — the command must START with a known
+	 * safe prefix and have no additional shell metacharacters */
 	for (i = 0; cmd_whitelist[i].prefix; i++) {
 		if (strncmp(cmd, cmd_whitelist[i].prefix,
 			    cmd_whitelist[i].prefix_len) == 0) {
@@ -173,15 +216,6 @@ int sec_validate_command(const char *cmd)
 			sys_debug("Command '%s' allowed (args=%d)\n",
 				cmd_whitelist[i].prefix, argc);
 			return 0;
-		}
-	}
-
-	/* Not in whitelist — check for dangerous character patterns */
-	for (i = 0; dangerous_patterns[i]; i++) {
-		if (strstr(cmd, dangerous_patterns[i])) {
-			sys_warn("Command blocked: contains dangerous pattern '%s'\n",
-				dangerous_patterns[i]);
-			return -1;
 		}
 	}
 
@@ -367,10 +401,10 @@ static pthread_mutex_t rate_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static int rate_bucket(const char *mac)
 {
-	int sum = 0;
+	unsigned int h = 5381;  // DJB2 hash
 	for (int i = 0; i < ETH_ALEN; i++)
-		sum += (unsigned char)mac[i];
-	return sum % RATE_TABLE_SIZE;
+		h = h * 33 + (unsigned char)mac[i];
+	return h % RATE_TABLE_SIZE;
 }
 
 /*

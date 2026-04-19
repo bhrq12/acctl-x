@@ -76,4 +76,7 @@ unsigned long get_uptime(void);
 unsigned long get_memfree(void);
 unsigned int  get_cpu_usage(void);
 
+/* Global shutdown flag (declared in ac/main.c) */
+extern volatile int g_running;
+
 #endif /* __PROCESS_H__ */

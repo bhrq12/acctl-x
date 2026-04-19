@@ -41,17 +41,7 @@
 #define SYSSTAT_LOCK()    pthread_mutex_lock(&sysstat.lock)
 #define SYSSTAT_UNLOCK() pthread_mutex_unlock(&sysstat.lock)
 
-/* AP global state */
-struct sysstat_t {
-	char     acuuid[UUID_LEN];
-	unsigned char dmac[ETH_ALEN];   /* AC's MAC address */
-	int      isreg;             /* 0=unregistered, 1=registered */
-	int      sock;              /* TCP socket to AC */
-	struct sockaddr_in server;  /* AC's IP address */
-	pthread_mutex_t lock;
-	time_t   last_brd;          /* timestamp of last broadcast received */
-};
-
+/* AP global state — sysstat_t defined in process.h */
 struct sysstat_t sysstat = {
 	.acuuid = {0},
 	.dmac = {0},

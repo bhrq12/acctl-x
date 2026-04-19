@@ -1,7 +1,7 @@
 /*
  * ============================================================================
  *       Filename:  net.c
- *       Description:  AP-side network layer â€?datalink receive
+ *       Description:  AP-side network layer ï¿½?datalink receive
  * ============================================================================
  */
 #include <stdio.h>
@@ -53,8 +53,13 @@ static void *__net_dllrecv(void *arg)
 
 	/* Only process AC broadcast probe messages on ETH */
 	if (head->msg_type == MSG_AC_BRD) {
-		/* Store AC's MAC from ETH header for TCP connection */
+		/* Store AC's MAC from ETH header for TCP connection.
+		 * Note: sysstat.dmac is written here without lock for
+		 * performance, as the AP model is single-threaded for
+		 * ETH receive. The report thread reads it under lock. */
+		SYSSTAT_LOCK();
 		memcpy(sysstat.dmac, src_mac, ETH_ALEN);
+		SYSSTAT_UNLOCK();
 		/* Pass directly to message processor (single-threaded AP model) */
 		ap_msg_proc(buf, rcvlen, MSG_PROTO_ETH);
 	}

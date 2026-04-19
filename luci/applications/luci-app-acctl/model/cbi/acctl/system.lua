@@ -46,44 +46,19 @@ s2 = m:section(NamedSection, "acctl", "acctl",
 s2.addremove = false
 s2.anonymous = true
 
--- Read statistics from JSON file
-local json_path = "/etc/acctl/ac.json"
+-- Read statistics via CLI (avoids direct file access race with daemon)
 local ap_total, ap_online, alarm_count, group_count = 0, 0, 0, 0
-
-local f = io.open(json_path, "r")
-if f then
-	local raw = f:read("*a")
-	f:close()
-
-	local ok, data = pcall(http.parse_json, raw)
-	if ok and data then
-		-- Count nodes
-		if data.nodes and type(data.nodes) == "table" then
-			ap_total = #data.nodes
-			for _, node in ipairs(data.nodes) do
-				if node.device_down == 0 or node.device_down == "0" then
-					ap_online = ap_online + 1
-				end
-			end
-		end
-
-		-- Count unacknowledged alarms
-		if data.alarm_events and type(data.alarm_events) == "table" then
-			for _, ev in ipairs(data.alarm_events) do
-				if ev.acknowledged == 0 or ev.acknowledged == "0" then
-					alarm_count = alarm_count + 1
-				end
-			end
-		end
-
-		-- Count groups
-		if data.ap_groups and type(data.ap_groups) == "table" then
-			group_count = #data.ap_groups
-		end
-	end
+local stats_output = sys.exec("acctl-cli stats 2>/dev/null")
+local ok_stats, stats_data = pcall(http.parse_json, stats_output)
+if ok_stats and stats_data then
+    ap_total    = tonumber(stats_data.ap_total) or 0
+    ap_online   = tonumber(stats_data.ap_online) or 0
+    alarm_count = tonumber(stats_data.alarms) or 0
+    group_count = tonumber(stats_data.groups) or 0
 end
 
--- JSON file size
+-- JSON file size (safe read-only stat, no race condition)
+local json_path = "/etc/acctl/ac.json"
 local db_size = "N/A"
 if fs.access(json_path) then
 	local sz = tonumber(fs.stat(json_path, "size"))

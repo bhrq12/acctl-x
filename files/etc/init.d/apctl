@@ -17,7 +17,7 @@ CONFIG_ACCTL=/etc/config/acctl
 # Load configuration values
 load_ap_config() {
 	config_load acctl
-	config_get_bool ap_enabled acctl ap enabled 0
+	config_get_bool ap_enabled acctl acctl ap_enabled 0
 	config_get interface     acctl acctl interface br-lan
 	config_get msgitv        acctl acctl msgitv 3
 	config_get daemon        acctl acctl daemon 1

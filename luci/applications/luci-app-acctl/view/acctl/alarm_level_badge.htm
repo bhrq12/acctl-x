@@ -1,4 +1,8 @@
-<% local level = self.map:get(self.section, "level") or 0 %>
+<%-
+  Alarm level badge template for Table sections with plain Lua data.
+  Reads value directly from the section data, not from UCI.
+-%>
+<% local level = tostring(self.value or "0") %>
 <% if level == "3" then %>
 <span style="background:#dc3545;color:white;padding:2px 8px;border-radius:3px;font-weight:bold">CRITICAL</span>
 <% elseif level == "2" then %>

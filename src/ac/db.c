@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <json-c/json.h>
 
 #include "db.h"
@@ -117,16 +118,16 @@ static json_object *json_load_file(const char *path)
     return obj;
 }
 
-/* Save JSON file with locking and backup */
+/* Save JSON file: write to temp first, then atomic rename */
 static int json_save_file(const char *path, json_object *obj)
 {
-    /* Create backup first */
-    rename(path, DB_BACKUP);
+    /* Write to temp file first, then atomic rename */
+    char tmp_path[256];
+    snprintf(tmp_path, sizeof(tmp_path), "%s.tmp.%d", path, getpid());
 
-    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    int fd = open(tmp_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) {
-        rename(DB_BACKUP, path);
-        set_error("Cannot open %s: %s", path, strerror(errno));
+        set_error("Cannot create temp file %s: %s", tmp_path, strerror(errno));
         return -1;
     }
 
@@ -142,8 +143,19 @@ static int json_save_file(const char *path, json_object *obj)
     close(fd);
 
     if (written < 0) {
-        rename(DB_BACKUP, path);
+        unlink(tmp_path);
         set_error("Write error: %s", strerror(errno));
+        return -1;
+    }
+
+    /* Backup existing file */
+    rename(path, DB_BACKUP);
+
+    /* Atomic rename temp to target */
+    if (rename(tmp_path, path) != 0) {
+        set_error("Rename %s to %s failed: %s", tmp_path, path, strerror(errno));
+        /* Try to restore backup */
+        rename(DB_BACKUP, path);
         return -1;
     }
 
@@ -448,6 +460,11 @@ int db_init(db_t **dbp)
         *dbp = newdb;
     db = newdb;
 
+    /* Start auto-save thread */
+    pthread_t autosave_tid;
+    pthread_create(&autosave_tid, NULL, db_autosave_thread, NULL);
+    pthread_detach(autosave_tid);
+
     sys_info("JSON database initialized: %s\n", DBNAME);
     return 0;
 }
@@ -487,18 +504,27 @@ int db_query_res(db_t *dbp, char *buffer, int len)
     if (!res)
         return -1;
 
-    JSON_ENCODE_START(buffer, len);
-
-    for (int i = 0; i < tables.res.col_num && len > 2; i++) {
+    /* Build JSON string from resource object fields */
+    json_object *json_res = json_object_new_object();
+    for (int i = 0; i < tables.res.col_num; i++) {
         const char *key = tables.res.head[i].name;
         json_object *jv;
         if (json_object_object_get_ex(res, key, &jv)) {
             const char *val = json_object_get_string(jv);
-            JSON_ENCODE(buffer, len, key, val ? val : SQL_NULL);
+            json_object_object_add(json_res, key,
+                json_object_new_string(val ? val : ""));
+        } else {
+            json_object_object_add(json_res, key,
+                json_object_new_string(""));
         }
     }
 
-    JSON_ENCODE_END(buffer, len);
+    const char *str = json_object_to_json_string_ext(json_res,
+        JSON_C_TO_STRING_PLAIN);
+    strncpy(buffer, str, len - 1);
+    buffer[len - 1] = '\0';
+    json_object_put(json_res);
+
     return 0;
 }
 
@@ -733,7 +759,6 @@ int db_group_create(const char *name, const char *description)
         int gid = get_int(g, "id");
         if (gid > max_id) max_id = gid;
     }
-    json_object_put(json_object_object_get(grp, "id"));
     json_object_object_add(grp, "id", json_object_new_int(max_id + 1));
 
     json_object_array_add(groups, grp);
@@ -855,7 +880,6 @@ int db_alarm_insert(int level, const char *ap_mac, const char *message,
         int aid = get_int(a, "id");
         if (aid > max_id) max_id = aid;
     }
-    json_object_put(json_object_object_get(al, "id"));
     json_object_object_add(al, "id", json_object_new_int(max_id + 1));
 
     json_object_array_add(alarms, al);
@@ -1004,7 +1028,6 @@ int db_firmware_insert(const char *version, const char *filename,
         int fid = get_int(f, "id");
         if (fid > max_id) max_id = fid;
     }
-    json_object_put(json_object_object_get(fw, "id"));
     json_object_object_add(fw, "id", json_object_new_int(max_id + 1));
 
     json_object_array_add(fws, fw);
@@ -1111,7 +1134,6 @@ int db_upgrade_start(const char *ap_mac, const char *from_ver, const char *to_ve
         int lid = get_int(l, "id");
         if (lid > max_id) max_id = lid;
     }
-    json_object_put(json_object_object_get(log, "id"));
     json_object_object_add(log, "id", json_object_new_int(max_id + 1));
 
     json_object_array_add(logs, log);
@@ -1207,10 +1229,24 @@ int db_audit_log(const char *user, const char *action,
         int lid = get_int(l, "id");
         if (lid > max_id) max_id = lid;
     }
-    json_object_put(json_object_object_get(log, "id"));
     json_object_object_add(log, "id", json_object_new_int(max_id + 1));
 
     json_object_array_add(logs, log);
     db->modified = 1;
     return 0;
+}
+
+/* ========================================================================
+ * Periodic auto-save
+ * ======================================================================== */
+static void *db_autosave_thread(void *arg)
+{
+    (void)arg;
+    while (1) {
+        sleep(60);
+        if (db && db->modified) {
+            db_save(db);
+        }
+    }
+    return NULL;
 }

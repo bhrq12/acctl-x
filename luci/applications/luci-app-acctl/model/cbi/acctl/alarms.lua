@@ -60,7 +60,7 @@ s2:option(DummyValue, "id",         translate("ID"))
 s2:option(DummyValue, "ap_mac",     translate("AP MAC"))
 
 level_col = s2:option(DummyValue, "level", translate("Level"))
-level_col.template = "acctl/alarm_level"
+level_col.template = "acctl/alarm_level_badge"
 
 s2:option(DummyValue, "message",     translate("Message"))
 s2:option(DummyValue, "created_at",  translate("Time"))

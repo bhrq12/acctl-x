@@ -124,12 +124,12 @@ static void get_radio_frequency_band(const char *iface, char *band, size_t band_
 	}
 	if (fp) pclose(fp);
 
-	if (freq >= 2400 && freq < 5900)
-		strncpy(band, FREQ_BAND_2G, band_len - 1);
-	else if (freq >= 5150 && freq < 5900)
+	if (freq >= 5150 && freq < 5900)
 		strncpy(band, FREQ_BAND_5G, band_len - 1);
 	else if (freq >= 5900)
 		strncpy(band, FREQ_BAND_6G, band_len - 1);
+	else if (freq >= 2400 && freq < 2500)
+		strncpy(band, FREQ_BAND_2G, band_len - 1);
 	else
 		strncpy(band, FREQ_BAND_UNKNOWN, band_len - 1);
 	band[band_len - 1] = '\0';

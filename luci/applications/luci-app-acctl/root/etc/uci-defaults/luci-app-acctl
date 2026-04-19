@@ -25,8 +25,7 @@ config node_default 'default'
 	option signal 'auto'
 EOF
 
-# Initialize database
+# Initialize database directory (JSON backend, no sqlite3)
 [ -d /etc/acctl ] || mkdir -p /etc/acctl
-[ -f /etc/acctl/ac.db ] || sqlite3 /etc/acctl/ac.db < /dev/null
 
 exit 0

@@ -8,39 +8,36 @@ local http = require "luci.http"
 m = Map("acctl", translate("AP Groups"),
 	translate("Organize Access Points into groups for batch management"))
 
--- Read groups from JSON file
 local function get_groups()
 	local groups = {}
-	local f = io.open("/etc/acctl/ac.json", "r")
-	if not f then return groups end
+	local output = sys.exec("acctl-cli groups 2>/dev/null")
+	local ok, data = pcall(http.parse_json, output)
+	if not ok or not data or not data.groups then return groups end
 
-	local ok, data = pcall(http.parse_json, f:read("*a"))
-	f:close()
-	if not ok or not data or not data.ap_groups then return groups end
-
-	for _, grp in ipairs(data.ap_groups) do
-		-- Count APs in this group
-		local ap_count = 0
-		if data.nodes and type(data.nodes) == "table" then
-			for _, node in ipairs(data.nodes) do
-				if tonumber(node.group_id) == tonumber(grp.id) then
-					ap_count = ap_count + 1
-				end
-			end
+	-- Count APs per group from AP list
+	local aps_output = sys.exec("acctl-cli aps --limit 500 2>/dev/null")
+	local aps_ok, aps_data = pcall(http.parse_json, aps_output)
+	local ap_count = {}
+	if aps_ok and aps_data and aps_data.aps then
+		for _, ap in ipairs(aps_data.aps) do
+			local gid = tonumber(ap.group_id) or 0
+			ap_count[gid] = (ap_count[gid] or 0) + 1
 		end
+	end
 
+	for _, grp in ipairs(data.groups) do
 		table.insert(groups, {
 			id          = tonumber(grp.id) or 0,
 			name        = grp.name or "",
 			description = grp.description or "",
-			policy      = grp.update_policy or "manual",
-			ap_count    = ap_count
+			policy      = grp.policy or "manual",
+			ap_count    = ap_count[tonumber(grp.id) or 0] or 0
 		})
 	end
 	return groups
 end
 
-s = m:section(TypedSection, "ap_group", translate("Groups"),
+s = m:section(TypedSection, "profile", translate("Groups"),
 	translate("Create and manage AP groups"))
 s.anonymous = true
 s.addremove = true

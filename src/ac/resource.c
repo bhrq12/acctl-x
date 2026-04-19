@@ -27,6 +27,7 @@
 #include "db.h"
 #include "arg.h"
 #include "mjson.h"
+#include "process.h"
 #include <pthread.h>
 #include "list.h"
 
@@ -223,9 +224,12 @@ static int res_ip_equ_bak(void)
 	if (strcmp(resource.ip_start, resource.bak_start) ||
 		strcmp(resource.ip_end,   resource.bak_end)   ||
 		strcmp(resource.ip_mask,  resource.bak_mask)) {
-		strcpy(resource.bak_start, resource.ip_start);
-		strcpy(resource.bak_end,   resource.ip_end);
-		strcpy(resource.bak_mask,  resource.ip_mask);
+		strncpy(resource.bak_start, resource.ip_start, sizeof(resource.bak_start) - 1);
+		resource.bak_start[sizeof(resource.bak_start) - 1] = '\0';
+		strncpy(resource.bak_end,   resource.ip_end,   sizeof(resource.bak_end) - 1);
+		resource.bak_end[sizeof(resource.bak_end) - 1] = '\0';
+		strncpy(resource.bak_mask,  resource.ip_mask,  sizeof(resource.bak_mask) - 1);
+		resource.bak_mask[sizeof(resource.bak_mask) - 1] = '\0';
 		return 0;
 	}
 	return 1;  /* same as backup, no need to reload */
@@ -320,7 +324,7 @@ void *res_check(void *arg)
 	char buffer[1024];
 	(void)arg;
 
-	while (1) {
+	while (g_running) {
 		sys_debug("Checking IP pool from database (interval=%ds)\n",
 			argument.reschkitv);
 

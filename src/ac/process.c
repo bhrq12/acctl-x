@@ -389,8 +389,8 @@ static void __ap_reg(struct ap_hash_t *aphash,
 		inet_ntop(AF_INET, &msg->ipv4.sin_addr, wan_ip_str,
 			sizeof(wan_ip_str));
 
-	/* 9. Update database */
-	db_ap_upsert((const char *)msg->header.mac,
+	/* 9. Update database — use formatted MAC string, not raw bytes */
+	db_ap_upsert(mac_str,
 		aphash->ap.hostname[0] ? aphash->ap.hostname : mac_str,
 		wan_ip_str[0] ? wan_ip_str : ip_str,
 		aphash->ap.wifi_ssid,
@@ -581,7 +581,7 @@ void ap_lost(int sock)
 
 	if (found) {
 		snprintf(mac_str, sizeof(mac_str),
-			MAC_FMT", MAC_ARG(mac_copy));
+			MAC_FMT, MAC_ARG(mac_copy));
 		sys_debug("AP lost (sock=%d): %s\n", sock, mac_str);
 		db_ap_set_offline(mac_str);
 	}

@@ -85,8 +85,8 @@ static struct message_t *ac_message_delete(struct ap_hash_t *aphash)
 	struct message_t *msg = aphash->msg_head;
 	if (msg) {
 		aphash->msg_head = msg->next;
-		if (!msg->next)
-			aphash->msg_head = NULL;
+		if (!aphash->msg_head)
+			aphash->msg_tail = &aphash->msg_head;
 		msg->next = NULL;
 	}
 	pthread_mutex_unlock(&aphash->msg_lock);
@@ -111,6 +111,8 @@ static void ac_message_free(struct message_t *msg)
  *
  * Loops through all hash buckets and processes pending messages
  * for each AP. This runs in a dedicated thread.
+ * Snapshot pattern: dequeue under lock, process outside lock
+ * to avoid blocking new connections and broadcasts.
  */
 static void *ac_message_travel(void *arg)
 {
@@ -122,27 +124,60 @@ static void *ac_message_travel(void *arg)
 	while (1) {
 		processed = 0;
 
-		/* Iterate all hash buckets */
+		/* Snapshot: dequeue messages from all APs under lock,
+		 * then process them outside the lock to avoid blocking
+		 * new connections and broadcasts. */
+
+		/* Collect pending messages */
+		struct msg_snapshot {
+			struct ap_hash_t *aphash;
+			struct message_t *msg;
+		};
+
+		/* Allocate a batch buffer for snapshot */
+		int batch_cap = 64;
+		struct msg_snapshot *batch = malloc(sizeof(struct msg_snapshot) * batch_cap);
+		if (!batch) {
+			sleep(argument.msgitv);
+			continue;
+		}
+
+		int batch_count = 0;
+
 		for (int i = 0; i < AP_HASH_SIZE; i++) {
 			pthread_mutex_lock(&g_ap_table.lock);
 			struct hlist_node *n;
 			hlist_for_each_entry(aphash, n,
 				&g_ap_table.buckets[i],
 				node) {
-				/* Skip empty slots */
 				if (aphash->ap.mac[0] == 0)
 					continue;
 
-				/* Process all pending messages for this AP */
+				/* Drain all pending messages for this AP */
 				while ((msg = ac_message_delete(aphash)) != NULL) {
-					msg_proc(aphash, (void *)msg->data,
-						msg->len, msg->proto);
-					ac_message_free(msg);
-					processed++;
+					if (batch_count >= batch_cap) {
+						batch_cap *= 2;
+						batch = realloc(batch, sizeof(struct msg_snapshot) * batch_cap);
+						if (!batch) break;
+					}
+					batch[batch_count].aphash = aphash;
+					batch[batch_count].msg = msg;
+					batch_count++;
 				}
 			}
 			pthread_mutex_unlock(&g_ap_table.lock);
 		}
+
+		/* Process messages outside the lock */
+		for (int i = 0; i < batch_count; i++) {
+			msg = batch[i].msg;
+			msg_proc(batch[i].aphash, (void *)msg->data,
+				msg->len, msg->proto);
+			ac_message_free(msg);
+			processed++;
+		}
+
+		free(batch);
 
 		if (processed > 0) {
 			sys_debug("Processed %d messages this round\n", processed);

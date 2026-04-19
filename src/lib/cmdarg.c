@@ -139,7 +139,6 @@ void proc_cmdarg(int argc, char *argv[])
 	__early_init(argc, argv);
 
 #ifdef CLIENT
-	struct hostent * host;
 #endif
 	while((short_arg = getopt_long(argc, argv, SHORT_STR, long_arg, NULL)) 
 		!= -1) {
@@ -170,16 +169,21 @@ void proc_cmdarg(int argc, char *argv[])
 			argument.reportitv = 
 				__strtol(optarg, NULL, 10);	
 			break;
-		case 'a':
-			host = gethostbyname(optarg);
-			if(!host) {
+		case 'a': {
+			struct addrinfo hints, *res = NULL;
+			memset(&hints, 0, sizeof(hints));
+			hints.ai_family = AF_INET;
+			hints.ai_socktype = SOCK_STREAM;
+			if (getaddrinfo(optarg, NULL, &hints, &res) != 0) {
 				sys_warn("Can not get ac address by: %s\n",
 					optarg);
 				break;
 			}
-			argument.acaddr.sin_addr = 
-				*((struct in_addr *)host->h_addr);
+			argument.acaddr.sin_addr =
+				((struct sockaddr_in *)res->ai_addr)->sin_addr;
+			freeaddrinfo(res);
 			break;
+		}
 #endif
 		case 'l':
 			debug = __strtol(optarg, NULL, 10);	

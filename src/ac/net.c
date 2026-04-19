@@ -196,7 +196,7 @@ static void *net_dllbrd(void *arg)
 		return NULL;
 	}
 
-	while (1) {
+	while (g_running) {
 		/* Generate new random challenge for next registration round */
 		ac.random = chap_get_random();
 
@@ -244,7 +244,7 @@ static void *net_netlisten(void *arg)
 	sys_info("TCP listener started on port %d (backlog=%d)\n",
 		argument.port, 512);
 
-	while (1) {
+	while (g_running) {
 		ret = tcp_accept(&tcplisten, __net_netrcv);
 		if (ret < 0) {
 			if (errno == EINTR)

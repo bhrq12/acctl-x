@@ -1,24 +1,10 @@
-<%#
-Band type display: single-band (2.4GHz or 5GHz) or dual-band
--%>
-<%+inc/header%>
-<div class="cbi-map">
-<% if self.section and self.section.data then %>
-<% local band_type = self.section.data.band_type or "unknown" %>
-<% local is_single = self.section.data.is_single_band %>
-
-<% if is_single then %>
-<span style="background:#f0ad4e; color:#fff; padding:2px 8px; border-radius:10px; font-size:85%;">
-<%=band_type%>
-</span>
+<% local band = self.value or "" %>
+<% if band == "5GHz" then %>
+<span style="color:#d04a1f;font-weight:bold">5GHz</span>
+<% elseif band == "dual" then %>
+<span style="color:#1fa3d4;font-weight:bold">Dual-Band</span>
+<% elseif band == "2.4GHz" then %>
+<span style="color:#1fa3d4;font-weight:bold">2.4GHz</span>
 <% else %>
-<span style="background:#5a9e3a; color:#fff; padding:2px 8px; border-radius:10px; font-size:85%;">
-Dual-Band
-</span>
+<span style="color:#999"><%=band%></span>
 <% end %>
-
-<% else %>
-<span style="color:#888;">-</span>
-<% end %>
-</div>
-<%+inc/footer%>

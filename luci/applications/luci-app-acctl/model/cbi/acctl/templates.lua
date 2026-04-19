@@ -6,7 +6,7 @@ m = Map("acctl", translate("Config Templates"),
 	translate("AP default configuration templates"))
 
 -- Default profiles
-s = m:section(TypedSection, "node_default", translate("Profiles"),
+s = m:section(TypedSection, "profile", translate("Profiles"),
 	translate("Pre-configured AP profiles"))
 s.anonymous = true
 s.addremove = true

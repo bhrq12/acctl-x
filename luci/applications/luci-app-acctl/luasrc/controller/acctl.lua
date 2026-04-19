@@ -196,9 +196,18 @@ function api_aps_action()
         return
     end
 
-    -- Audit log
-    -- Shell-safe: escape single quotes in macs
-    local safe_macs = macs:gsub("'", "'\\''")
+    -- Validate action against whitelist
+    local valid_actions = { reboot = true, config = true, upgrade = true }
+    if not valid_actions[action] then
+        result.code    = 400
+        result.message = "Invalid action"
+        http.prepare_content("application/json")
+        http.write_json(result)
+        return
+    end
+
+    -- Audit log (use only validated action, sanitize macs for shell safety)
+    local safe_macs = macs:gsub("[^%x:, ]", "")
     cli_output(string.format(
         "acctl-cli audit admin %s ap_batch '%s' '' '' ''",
         action, safe_macs:sub(1, 50)))
@@ -360,9 +369,18 @@ function api_cmd()
     }
 
     -- Exact match: command must exactly equal whitelist entry
-    -- Reject if cmd contains shell metacharacters
-    local shell_metachar = "[;&|`$(){}<>]"
+    -- Reject if cmd contains any shell metacharacters or control chars
+    local shell_metachar = "[;&|`$(){}<>%!~\n\r%[%]%*%?]"
     if cmd:match(shell_metachar) then
+        result.code    = 403
+        result.message = "Command contains forbidden characters"
+        http.prepare_content("application/json")
+        http.write_json(result)
+        return
+    end
+
+    -- Reject if command contains path separators not in whitelist
+    if cmd:match("/") and not allowed[cmd] then
         result.code    = 403
         result.message = "Command contains forbidden characters"
         http.prepare_content("application/json")
@@ -381,10 +399,12 @@ function api_cmd()
         return
     end
 
-    -- Audit
+    -- Audit (sanitize inputs for shell safety)
+    local safe_mac = mac:gsub("[^%x:]", ""):sub(1, 20)
+    local safe_cmd = cmd:gsub("'", "'\\''"):sub(1, 100)
     cli_output(string.format(
         "acctl-cli audit admin EXEC ap '%s' '' '%s' ''",
-        mac:sub(1, 20), cmd:sub(1, 100)))
+        safe_mac, safe_cmd))
 
     result.message = "Command queued successfully"
     http.prepare_content("application/json")

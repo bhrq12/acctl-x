@@ -31,6 +31,9 @@ config acctl 'acctl'
 	# Debug mode (1=yes, 0=no)
 	option debug       '0'
 
+	# AP client mode enabled (1=yes, 0=no)
+	option ap_enabled   '0'
+
 	# Multi-SSID support (1=yes, 0=no)
 	option multi_ssid   '1'
 

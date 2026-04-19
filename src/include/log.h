@@ -70,11 +70,11 @@ extern int debug;
 #define pure_info(fmt, ...) 	__sys_log2(fmt, ##__VA_ARGS__)
 #define sys_info(fmt, ...) 	__sys_log(SYSLOG_INFO, "INFO: "fmt, ##__VA_ARGS__)
 #else
-#define sys_warn(fmt, ...) 	NULL
-#define sys_debug(fmt, ...)  	NULL
-#define sys_lock(fmt, ...) 	NULL
-#define pure_info(fmt, ...) 	NULL
-#define sys_info(fmt, ...) 	NULL
+#define sys_warn(fmt, ...) 	do { } while(0)
+#define sys_debug(fmt, ...)  	do { } while(0)
+#define sys_lock(fmt, ...) 	do { } while(0)
+#define pure_info(fmt, ...) 	do { } while(0)
+#define sys_info(fmt, ...) 	do { } while(0)
 #endif
 
 #ifdef DEBUG
@@ -131,12 +131,12 @@ do { 							\
 }while(0)
 
 #else
-#define pr_ap(mac, uuid) 	NULL
-#define pr_mac(mac) 		NULL
-#define pr_ipv4(addr) 		NULL
-#define pr_hash(key, aphash, mac)  NULL
-#define pr_md5(md5) 		NULL
-#define pr_pkt(pkt, len) 		NULL
+#define pr_ap(mac, uuid) 	do { } while(0)
+#define pr_mac(mac) 		do { } while(0)
+#define pr_ipv4(addr) 		do { } while(0)
+#define pr_hash(key, aphash, mac)  do { } while(0)
+#define pr_md5(md5) 		do { } while(0)
+#define pr_pkt(pkt, len) 	do { } while(0)
 #endif
 
 #endif /* __LOG_H__ */

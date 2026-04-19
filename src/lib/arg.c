@@ -37,7 +37,7 @@ int daemon_mode = 0;
 /*
  * __getmac â€?get MAC address of the specified network interface
  */
-static void __getmac(char *nic, char *mac)
+static void __getmac(char *nic, unsigned char *mac)
 {
 	int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sockfd < 0) {

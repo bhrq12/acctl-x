@@ -32,6 +32,9 @@
 #include "resource.h"
 #include "log.h"
 
+/* Forward declarations */
+static void *db_autosave_thread(void *arg);
+
 /* Global database handle */
 db_t *db = NULL;
 struct tbl_col_t tables;

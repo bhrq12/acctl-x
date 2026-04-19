@@ -9,6 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <linux/if_ether.h>
+#include <errno.h>
 
 #include "dllayer.h"
 #include "log.h"

@@ -22,6 +22,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <time.h>
 
 #include "msg.h"
 #include "log.h"
@@ -38,8 +39,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#define SYSSTAT_LOCK()    pthread_mutex_lock(&sysstat.lock)
-#define SYSSTAT_UNLOCK() pthread_mutex_unlock(&sysstat.lock)
 
 /* AP global state — sysstat_t defined in process.h */
 struct sysstat_t sysstat = {

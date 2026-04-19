@@ -74,14 +74,40 @@ define Package/acctl/install
 		$(1)/usr/lib/lua/luci/controller/acctl.lua
 
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/model/cbi/acctl
-	for f in $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/model/cbi/acctl/*.lua; do \
-		$(INSTALL_DATA) "$$f" $(1)/usr/lib/lua/luci/model/cbi/acctl/; \
-	done
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/model/cbi/acctl/alarms.lua \
+		$(1)/usr/lib/lua/luci/model/cbi/acctl/alarms.lua
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/model/cbi/acctl/ap_list.lua \
+		$(1)/usr/lib/lua/luci/model/cbi/acctl/ap_list.lua
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/model/cbi/acctl/firmware.lua \
+		$(1)/usr/lib/lua/luci/model/cbi/acctl/firmware.lua
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/model/cbi/acctl/general.lua \
+		$(1)/usr/lib/lua/luci/model/cbi/acctl/general.lua
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/model/cbi/acctl/groups.lua \
+		$(1)/usr/lib/lua/luci/model/cbi/acctl/groups.lua
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/model/cbi/acctl/system.lua \
+		$(1)/usr/lib/lua/luci/model/cbi/acctl/system.lua
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/model/cbi/acctl/templates.lua \
+		$(1)/usr/lib/lua/luci/model/cbi/acctl/templates.lua
 
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/view/acctl
-	for f in $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/view/acctl/*.htm; do \
-		$(INSTALL_DATA) "$$f" $(1)/usr/lib/lua/luci/view/acctl/; \
-	done
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/view/acctl/alarm_level_badge.htm \
+		$(1)/usr/lib/lua/luci/view/acctl/alarm_level_badge.htm
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/view/acctl/ap_band.htm \
+		$(1)/usr/lib/lua/luci/view/acctl/ap_band.htm
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/view/acctl/ap_info.htm \
+		$(1)/usr/lib/lua/luci/view/acctl/ap_info.htm
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/view/acctl/ap_status.htm \
+		$(1)/usr/lib/lua/luci/view/acctl/ap_status.htm
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/view/acctl/ap_status_badge.htm \
+		$(1)/usr/lib/lua/luci/view/acctl/ap_status_badge.htm
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/view/acctl/ap_status_info.htm \
+		$(1)/usr/lib/lua/luci/view/acctl/ap_status_info.htm
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/view/acctl/ap_wifi.htm \
+		$(1)/usr/lib/lua/luci/view/acctl/ap_wifi.htm
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/view/acctl/status_bar.htm \
+		$(1)/usr/lib/lua/luci/view/acctl/status_bar.htm
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/view/acctl/user_badge.htm \
+		$(1)/usr/lib/lua/luci/view/acctl/user_badge.htm
 
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/root/etc/uci-defaults/luci-app-acctl \

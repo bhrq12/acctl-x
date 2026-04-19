@@ -23,6 +23,7 @@
 #include <sys/time.h>
 
 #include "aphash.h"
+#include <errno.h>
 #include "log.h"
 
 struct ap_hash_table g_ap_table;

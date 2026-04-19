@@ -62,6 +62,8 @@ struct sysstat_t {
 };
 
 extern struct sysstat_t sysstat;
+#define SYSSTAT_LOCK()    pthread_mutex_lock(&sysstat.lock)
+#define SYSSTAT_UNLOCK()  pthread_mutex_unlock(&sysstat.lock)
 
 /* ========================================================================
  * AP-side functions

@@ -68,7 +68,7 @@ cli_lib/%.o: lib/%.c
 # AC server (acser) — compiled with -DSERVER
 # ============================================================================
 AC_SRCS   = ac/main.c ac/process.c ac/net.c ac/message.c \
-            ac/resource.c ac/db.c ac/aphash.c ac/cli.c
+            ac/resource.c ac/db.c ac/aphash.c 
 AC_OBJS   = $(AC_SRCS:.c=.o)
 
 acser: $(AC_LIB_OBJS) $(AC_OBJS)

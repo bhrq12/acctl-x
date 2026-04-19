@@ -44,7 +44,7 @@ enum json_errors {
 };
 
 /* Attribute/array type tags */
-enum json_type {
+enum mjson_type {
     t_null, t_boolean, t_string, t_integer, t_uinteger,
     t_time, t_real, t_character, t_array, t_object,
     t_structobject, t_check, t_ignore,
@@ -57,7 +57,7 @@ struct json_enum_t {
 
 struct json_attr_t {
     const char *attribute;
-    enum json_type type;
+    enum mjson_type type;
     union {
         int *integer;
         unsigned int *uinteger;
@@ -84,7 +84,7 @@ struct json_attr_t {
 };
 
 struct json_array_t {
-    enum json_type element_type;
+    enum mjson_type element_type;
     union {
         struct {
             const struct json_attr_t *subtype;

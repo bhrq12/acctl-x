@@ -1,5 +1,5 @@
 /*
- * ============================================================================
+ * ============================================================================*
  *
  *       Filename:  sec.c
  *
@@ -15,7 +15,7 @@
  *         Author:  jianxi sun (jianxi), ycsunjane@gmail.com
  *   Organization:  OpenWrt AC Controller Project
  *
- * ============================================================================
+ * ============================================================================*
  */
 
 #include <stdio.h>
@@ -29,12 +29,55 @@
 #include <time.h>
 #include <regex.h>
 #include <ctype.h>
+#include <unistd.h>
 
 #include "sec.h"
 #include "sha256.h"
 #include "log.h"
 #include "aphash.h"
 #include <arpa/inet.h>
+
+/* PBKDF2 implementation for password hashing */
+void sec_pbkdf2_sha256(const char *pass, size_t pass_len, const uint8_t *salt, size_t salt_len, uint32_t iterations, uint8_t *out, size_t out_len)
+{
+    uint8_t digest[SHA256_DIGEST_SIZE];
+    uint8_t tmp[SHA256_DIGEST_SIZE];
+    uint32_t i, j, k;
+    uint32_t count = 1;
+    size_t block_size = SHA256_DIGEST_SIZE;
+    size_t blocks = (out_len + block_size - 1) / block_size;
+
+    for (i = 0; i < blocks; i++) {
+        /* First iteration: HMAC(pass, salt || count) */
+        sec_compute_hmac(salt, salt_len, (const uint8_t *)pass, pass_len, digest);
+        memcpy(tmp, digest, block_size);
+
+        /* Subsequent iterations: HMAC(pass, prev_hash) */
+        for (j = 1; j < iterations; j++) {
+            sec_compute_hmac(digest, block_size, (const uint8_t *)pass, pass_len, digest);
+            for (k = 0; k < block_size; k++) {
+                tmp[k] ^= digest[k];
+            }
+        }
+
+        /* Copy block to output */
+        size_t copy_len = (i == blocks - 1) ? (out_len - i * block_size) : block_size;
+        memcpy(out + i * block_size, tmp, copy_len);
+        count++;
+    }
+}
+
+/* Generate random salt for password hashing */
+static int generate_salt(uint8_t *salt, size_t salt_len)
+{
+    return sec_get_random_bytes(salt, salt_len);
+}
+
+/* Check if password is hashed using PBKDF2 */
+static int is_pbkdf2_hash(const char *hash)
+{
+    return strncmp(hash, "$pbkdf2$", 8) == 0;
+}
 
 /* ========================================================================
  * 1. Command whitelist validation (prevents command injection)
@@ -639,6 +682,89 @@ int sec_init(void)
 	sys_info("  Replay window: %d seconds\n", REPLAY_WINDOW_SEC);
 	sys_info("  Rate limit: 60 reg/min, 120 cmds/min per AP\n");
 	sys_info("  Block duration: 300 seconds\n");
+
+	return 0;
+}
+
+/*
+ * verify_password — verify a password against a PBKDF2 hash
+ * Returns: 1 if password matches, 0 otherwise
+ */
+int verify_password(const char *pass, const char *hash)
+{
+	if (!pass || !hash)
+		return 0;
+
+	if (strncmp(hash, "$pbkdf2$", 8) != 0)
+		return 0;
+
+	const char *salt_start = hash + 8;
+	const char *salt_end = strchr(salt_start, '$');
+	if (!salt_end)
+		return 0;
+
+	size_t salt_len = salt_end - salt_start;
+	if (salt_len > 64)
+		return 0;
+
+	char salt[64];
+	memcpy(salt, salt_start, salt_len);
+	salt[salt_len] = '\0';
+
+	const char *iter_str = salt_end + 1;
+	char *iter_end;
+	unsigned long iterations = strtoul(iter_str, &iter_end, 10);
+	if (iter_end == iter_str || iterations == 0)
+		return 0;
+
+	const char *hash_start = iter_end + 1;
+	if (*hash_start == '$')
+		hash_start++;
+
+	size_t hash_len = strlen(hash_start);
+	if (hash_len != 64)
+		return 0;
+
+	uint8_t computed[32];
+	sec_pbkdf2_sha256(pass, strlen(pass),
+		(const uint8_t *)salt, salt_len,
+		(unsigned int)iterations,
+		computed, sizeof(computed));
+
+	char computed_hex[65];
+	for (int i = 0; i < 32; i++)
+		sprintf(computed_hex + i * 2, "%02x", computed[i]);
+	computed_hex[64] = '\0';
+
+	return strncmp(computed_hex, hash_start, 64) == 0 ? 1 : 0;
+}
+
+/*
+ * hash_password — create a PBKDF2 hash of a password
+ * Returns: 0 on success, -1 on failure
+ */
+int hash_password(const char *pass, char *hash, size_t hash_len)
+{
+	if (!pass || !hash || hash_len < 128)
+		return -1;
+
+	uint8_t salt[16];
+	sec_get_random_bytes(salt, sizeof(salt));
+
+	char salt_hex[33];
+	for (int i = 0; i < 16; i++)
+		sprintf(salt_hex + i * 2, "%02x", salt[i]);
+	salt_hex[32] = '\0';
+
+	uint8_t key[32];
+	sec_pbkdf2_sha256(pass, strlen(pass), salt, sizeof(salt), 10000, key, sizeof(key));
+
+	char key_hex[65];
+	for (int i = 0; i < 32; i++)
+		sprintf(key_hex + i * 2, "%02x", key[i]);
+	key_hex[64] = '\0';
+
+	snprintf(hash, hash_len, "$pbkdf2$%s$10000$%s", salt_hex, key_hex);
 
 	return 0;
 }

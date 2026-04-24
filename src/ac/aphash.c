@@ -48,9 +48,11 @@ static unsigned int hash_mac_to_key(const char *mac)
 
 void hash_init(void)
 {
-	for (int i = 0; i < AP_HASH_SIZE; i++)
+	for (int i = 0; i < AP_HASH_SIZE; i++) {
 		INIT_HLIST_HEAD(&g_ap_table.buckets[i]);
-	pthread_mutex_init(&g_ap_table.lock, NULL);
+		pthread_mutex_init(&g_ap_table.bucket_locks[i], NULL);
+	}
+	pthread_mutex_init(&g_ap_table.count_lock, NULL);
 	g_ap_table.count = 0;
 }
 
@@ -66,16 +68,16 @@ struct ap_hash_t *hash_ap(const unsigned char *mac)
 	unsigned int key = hash_mac_to_key((const char *)mac);
 	struct ap_hash_t *aphash;
 
-	pthread_mutex_lock(&g_ap_table.lock);
+	pthread_mutex_lock(&g_ap_table.bucket_locks[key]);
 	struct hlist_node *n;
 	hlist_for_each_entry(aphash, n,
 		&g_ap_table.buckets[key], node) {
 		if (memcmp(aphash->ap.mac, mac, ETH_ALEN) == 0) {
-			pthread_mutex_unlock(&g_ap_table.lock);
+			pthread_mutex_unlock(&g_ap_table.bucket_locks[key]);
 			return aphash;
 		}
 	}
-	pthread_mutex_unlock(&g_ap_table.lock);
+	pthread_mutex_unlock(&g_ap_table.bucket_locks[key]);
 
 	return NULL;
 }
@@ -112,10 +114,12 @@ struct ap_hash_t *hash_ap_add(const unsigned char *mac)
 
 	unsigned int key = hash_mac_to_key((const char *)mac);
 
-	pthread_mutex_lock(&g_ap_table.lock);
+	pthread_mutex_lock(&g_ap_table.bucket_locks[key]);
 	hlist_add_head(&aphash->node, &g_ap_table.buckets[key]);
+	pthread_mutex_lock(&g_ap_table.count_lock);
 	g_ap_table.count++;
-	pthread_mutex_unlock(&g_ap_table.lock);
+	pthread_mutex_unlock(&g_ap_table.count_lock);
+	pthread_mutex_unlock(&g_ap_table.bucket_locks[key]);
 
 	sys_debug("AP added to hash: "
 		MAC_FMT" (total=%d)\n",
@@ -132,17 +136,44 @@ void hash_ap_del(char *mac)
 {
 	struct ap_hash_t *aphash;
 
-	pthread_mutex_lock(&g_ap_table.lock);
+	unsigned int key = hash_mac_to_key(mac);
+	pthread_mutex_lock(&g_ap_table.bucket_locks[key]);
+	struct hlist_node *n, *tmp;
+	hlist_for_each_entry_safe(aphash, n, tmp,
+		&g_ap_table.buckets[key], node) {
+		if (memcmp(aphash->ap.mac, mac, ETH_ALEN) == 0) {
+			hlist_del(&aphash->node);
+			pthread_mutex_lock(&g_ap_table.count_lock);
+			g_ap_table.count--;
+			pthread_mutex_unlock(&g_ap_table.count_lock);
+			pthread_mutex_destroy(&aphash->msg_lock);
+			free(aphash);
+			pthread_mutex_unlock(&g_ap_table.bucket_locks[key]);
+			sys_debug("AP removed from hash: "
+				MAC_FMT" (remaining=%d)\n",
+				(unsigned char)mac[0], (unsigned char)mac[1], (unsigned char)mac[2],
+				(unsigned char)mac[3], (unsigned char)mac[4], (unsigned char)mac[5],
+				g_ap_table.count);
+			return;
+		}
+	}
+	pthread_mutex_unlock(&g_ap_table.bucket_locks[key]);
+
+	/* If not found, search all buckets (should not happen normally) */
 	for (int i = 0; i < AP_HASH_SIZE; i++) {
-		struct hlist_node *n, *tmp;
+		if (i == key)
+			continue;
+		pthread_mutex_lock(&g_ap_table.bucket_locks[i]);
 		hlist_for_each_entry_safe(aphash, n, tmp,
 			&g_ap_table.buckets[i], node) {
 			if (memcmp(aphash->ap.mac, mac, ETH_ALEN) == 0) {
 				hlist_del(&aphash->node);
+				pthread_mutex_lock(&g_ap_table.count_lock);
 				g_ap_table.count--;
+				pthread_mutex_unlock(&g_ap_table.count_lock);
 				pthread_mutex_destroy(&aphash->msg_lock);
 				free(aphash);
-				pthread_mutex_unlock(&g_ap_table.lock);
+				pthread_mutex_unlock(&g_ap_table.bucket_locks[i]);
 				sys_debug("AP removed from hash: "
 					MAC_FMT" (remaining=%d)\n",
 					(unsigned char)mac[0], (unsigned char)mac[1], (unsigned char)mac[2],
@@ -151,8 +182,8 @@ void hash_ap_del(char *mac)
 				return;
 			}
 		}
+		pthread_mutex_unlock(&g_ap_table.bucket_locks[i]);
 	}
-	pthread_mutex_unlock(&g_ap_table.lock);
 }
 
 /*
@@ -185,9 +216,9 @@ void hash_ap_set_offline(char *mac)
 int hash_ap_count(void)
 {
 	int count;
-	pthread_mutex_lock(&g_ap_table.lock);
+	pthread_mutex_lock(&g_ap_table.count_lock);
 	count = g_ap_table.count;
-	pthread_mutex_unlock(&g_ap_table.lock);
+	pthread_mutex_unlock(&g_ap_table.count_lock);
 	return count;
 }
 
@@ -217,15 +248,16 @@ int hash_ap_list_json(char *buf, int buflen)
 	p += n; space -= n;
 
 	int first = 1;
-	pthread_mutex_lock(&g_ap_table.lock);
 	for (int i = 0; i < AP_HASH_SIZE; i++) {
+		pthread_mutex_lock(&g_ap_table.bucket_locks[i]);
 		struct ap_hash_t *aphash;
 		struct hlist_node *node;
 		hlist_for_each_entry(aphash, node,
 			&g_ap_table.buckets[i],
 			node) {
-			if (aphash->ap.mac[0] == 0)
+			if (aphash->ap.mac[0] == 0) {
 				continue;
+			}
 
 			const char *status_str =
 				(aphash->ap.status == AP_STATUS_ONLINE) ? "online" :
@@ -243,13 +275,13 @@ int hash_ap_list_json(char *buf, int buflen)
 				status_str, (long)aphash->ap.last_seen);
 
 			if (ret < 0 || ret >= space) {
-				pthread_mutex_unlock(&g_ap_table.lock);
+				pthread_mutex_unlock(&g_ap_table.bucket_locks[i]);
 				return -1;
 			}
 			p += ret; space -= ret; first = 0;
 		}
+		pthread_mutex_unlock(&g_ap_table.bucket_locks[i]);
 	}
-	pthread_mutex_unlock(&g_ap_table.lock);
 
 	n = snprintf(p, space, "]}");
 	if (n < 0 || n >= space) return -1;
@@ -264,15 +296,16 @@ int hash_ap_list_json(char *buf, int buflen)
 void hash_ap_dump(void)
 {
 	sys_info("AP Hash Table Dump (count=%d):\n", g_ap_table.count);
-	pthread_mutex_lock(&g_ap_table.lock);
 	for (int i = 0; i < AP_HASH_SIZE; i++) {
+		pthread_mutex_lock(&g_ap_table.bucket_locks[i]);
 		struct ap_hash_t *aphash;
 		struct hlist_node *node;
 		hlist_for_each_entry(aphash, node,
 			&g_ap_table.buckets[i],
 			node) {
-			if (aphash->ap.mac[0] == 0)
+			if (aphash->ap.mac[0] == 0) {
 				continue;
+			}
 
 			sys_info("  [%3d] " MAC_FMT
 				" sock=%d status=%d last_seen=%ld\n",
@@ -284,6 +317,31 @@ void hash_ap_dump(void)
 				aphash->ap.status,
 				(long)aphash->ap.last_seen);
 		}
+		pthread_mutex_unlock(&g_ap_table.bucket_locks[i]);
 	}
-	pthread_mutex_unlock(&g_ap_table.lock);
+}
+
+/*
+ * hash_cleanup — cleanup hash table and free all memory
+ */
+void hash_cleanup(void)
+{
+	for (int i = 0; i < AP_HASH_SIZE; i++) {
+		pthread_mutex_lock(&g_ap_table.bucket_locks[i]);
+		struct ap_hash_t *aphash;
+		struct hlist_node *n, *tmp;
+		hlist_for_each_entry_safe(aphash, n, tmp,
+			&g_ap_table.buckets[i], node) {
+			hlist_del(&aphash->node);
+			pthread_mutex_destroy(&aphash->msg_lock);
+			free(aphash);
+			pthread_mutex_lock(&g_ap_table.count_lock);
+			g_ap_table.count--;
+			pthread_mutex_unlock(&g_ap_table.count_lock);
+		}
+		pthread_mutex_unlock(&g_ap_table.bucket_locks[i]);
+		pthread_mutex_destroy(&g_ap_table.bucket_locks[i]);
+	}
+	pthread_mutex_destroy(&g_ap_table.count_lock);
+	sys_info("AP hash table cleaned up (count=%d)\n", g_ap_table.count);
 }

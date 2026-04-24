@@ -428,9 +428,9 @@ static void *ap_heartbeat_check(void *arg)
 		stale_count = 0;
 		time_t now = time(NULL);
 
-		/* Phase 1: collect stale APs under lock */
+		/* Phase 1: collect stale APs under per-bucket lock */
 		for (int i = 0; i < AP_HASH_SIZE; i++) {
-			pthread_mutex_lock(&g_ap_table.lock);
+			pthread_mutex_lock(&g_ap_table.bucket_locks[i]);
 
 			struct ap_hash_t *aphash;
 			struct hlist_node *n, *tmp;
@@ -455,7 +455,7 @@ static void *ap_heartbeat_check(void *arg)
 				}
 			}
 
-			pthread_mutex_unlock(&g_ap_table.lock);
+			pthread_mutex_unlock(&g_ap_table.bucket_locks[i]);
 		}
 
 		/* Phase 2: process stale APs outside lock */
@@ -556,11 +556,12 @@ void ap_lost(int sock)
 	char mac_str[32];
 	char mac_copy[ETH_ALEN];
 	int found = 0;
+	int bucket_idx = -1;
 
-	pthread_mutex_lock(&g_ap_table.lock);
-
-	/* Find AP by socket and snapshot its MAC */
+	/* Find AP by socket under per-bucket lock */
 	for (int i = 0; i < AP_HASH_SIZE; i++) {
+		pthread_mutex_lock(&g_ap_table.bucket_locks[i]);
+
 		struct ap_hash_t *aphash;
 		struct hlist_node *n;
 		hlist_for_each_entry(aphash, n, &g_ap_table.buckets[i], node) {
@@ -570,14 +571,15 @@ void ap_lost(int sock)
 				aphash->ap.sock = -1;
 				aphash->ap.status = AP_STATUS_OFFLINE;
 				found = 1;
+				bucket_idx = i;
 				break;
 			}
 		}
+
+		pthread_mutex_unlock(&g_ap_table.bucket_locks[i]);
 		if (found)
 			break;
 	}
-
-	pthread_mutex_unlock(&g_ap_table.lock);
 
 	if (found) {
 		snprintf(mac_str, sizeof(mac_str),

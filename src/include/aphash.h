@@ -66,7 +66,8 @@ struct ap_hash_t {
 /* Hash table */
 struct ap_hash_table {
 	struct hlist_head buckets[AP_HASH_SIZE];
-	pthread_mutex_t lock;
+	pthread_mutex_t bucket_locks[AP_HASH_SIZE];
+	pthread_mutex_t count_lock;
 	int count;
 };
 
@@ -81,5 +82,6 @@ void  hash_ap_set_offline(char *mac);
 int   hash_ap_count(void);
 int   hash_ap_list_json(char *buf, int buflen);
 void  hash_ap_dump(void);
+void  hash_cleanup(void);
 
 #endif /* __APHASH_H__ */

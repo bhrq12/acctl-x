@@ -332,8 +332,7 @@ static void json_escape_append(char *dest, int *dest_len, int dest_cap,
 
     /* "key":" */
     int klen = strlen(key);
-    int vlen = strlen(val ? val : "");
-    if (pos + klen + vlen + 6 >= space) {
+    if (pos + klen + 6 >= space) {
         *dest_len = dest_cap;
         return;
     }
@@ -345,12 +344,31 @@ static void json_escape_append(char *dest, int *dest_len, int dest_cap,
     dp[pos++] = ':';
     dp[pos++] = '"';
 
-    /* Value with basic escape */
+    /* Value with proper JSON escape */
     const char *p = val ? val : "";
-    while (*p && pos < space - 3) {
+    while (*p && pos < space - 7) {
         if (*p == '"' || *p == '\\') {
             dp[pos++] = '\\';
-            if (pos < space - 1) dp[pos++] = *p;
+            dp[pos++] = *p;
+        } else if (*p == '\b') {
+            dp[pos++] = '\\';
+            dp[pos++] = 'b';
+        } else if (*p == '\f') {
+            dp[pos++] = '\\';
+            dp[pos++] = 'f';
+        } else if (*p == '\n') {
+            dp[pos++] = '\\';
+            dp[pos++] = 'n';
+        } else if (*p == '\r') {
+            dp[pos++] = '\\';
+            dp[pos++] = 'r';
+        } else if (*p == '\t') {
+            dp[pos++] = '\\';
+            dp[pos++] = 't';
+        } else if ((unsigned char)*p < 32) {
+            /* Escape control characters */
+            snprintf(dp + pos, space - pos, "\\u%04x", (unsigned char)*p);
+            pos += 6;
         } else {
             dp[pos++] = *p;
         }
@@ -1151,6 +1169,11 @@ int db_upgrade_finish(const char *ap_mac, const char *status, const char *error_
     json_object *logs = get_root_obj("upgrade_logs");
     if (!logs) return -1;
 
+    time_t now = time(NULL);
+    char ts[64];
+    struct tm *tm_info = localtime(&now);
+    strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", tm_info);
+
     int len = json_object_array_length(logs);
     for (int i = len - 1; i >= 0; i--) {
         json_object *log = json_object_array_get_idx(logs, i);
@@ -1159,7 +1182,7 @@ int db_upgrade_finish(const char *ap_mac, const char *status, const char *error_
         if (strcmp(m, ap_mac) == 0 && strcmp(s, "pending") == 0) {
             set_str(log, "status",       status ? status : "unknown");
             set_str(log, "error_message", error_msg ? error_msg : "");
-            set_str(log, "finished_at",  "");
+            set_str(log, "finished_at",  ts);
 
             db->modified = 1;
             return 0;

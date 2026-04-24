@@ -76,7 +76,7 @@ struct dllbrd_t {
 #define UNLOCK_BRD() 	pthread_mutex_unlock(&dllbrd.lock)
 #define UNLOCK_SDR() 	pthread_mutex_unlock(&dllsdr.lock)
 
-static void __init_nic(int sock, char *nic)
+static int __init_nic(int sock, char *nic)
 {
 	assert(nic != NULL);
 	
@@ -88,7 +88,7 @@ static void __init_nic(int sock, char *nic)
 	if(ret < 0) {
 		sys_err("Can not get ifiindex of %s: %s\n", 
 			nic, strerror(errno));
-		exit(-1);
+		return -1;
 	}
 	dllnic.ifiindex = req.ifr_ifindex;
 
@@ -96,15 +96,16 @@ static void __init_nic(int sock, char *nic)
 	if(ret < 0) {
 		sys_err("Can not get mac addr of %s: %s\n", 
 			nic, strerror(errno));
-		exit(-1);
+		return -1;
 	}
 
 	strncpy(dllnic.nic, nic, IFNAMSIZ - 1);
 	dllnic.nic[IFNAMSIZ - 1] = '\0';
 	memcpy(dllnic.mac, req.ifr_hwaddr.sa_data, ETH_ALEN);
+	return 0;
 }
 
-static void __init_pktbuf(char *localmac)
+static int __init_pktbuf(char *localmac)
 {
 	assert(dllsdr.sdrpkt == NULL && dllrcv.rcvpkt == NULL);
 
@@ -113,7 +114,7 @@ static void __init_pktbuf(char *localmac)
 	if(tmp == NULL) {
 		sys_err("Init dllayer pkt buffer failed: %s\n", 
 			strerror(errno));
-		exit(-1);
+		return -1;
 	}
 	dllsdr.sdrpkt = tmp;
 	dllrcv.rcvpkt = tmp + DLL_PKT_MAXLEN;
@@ -127,6 +128,7 @@ static void __init_pktbuf(char *localmac)
 	memcpy(eth->h_source, localmac, ETH_ALEN);
 	memset(eth->h_dest, 0xff, ETH_ALEN);
 	eth->h_proto = htons(ETH_INNO);
+	return 0;
 }
 
 int __create_sock(int brdcst)
@@ -136,7 +138,7 @@ int __create_sock(int brdcst)
 	if(sock < 0) {
 		sys_err("Create dllayer socket failed: %s\n", 
 			strerror(errno));
-		exit(-1);
+		return -1;
 	}
 
 	if(brdcst) {
@@ -146,7 +148,8 @@ int __create_sock(int brdcst)
 		if(ret < 0) {
 			sys_err("Enable broadcast mode failed: %s\n",
 				strerror(errno));
-			exit(-1);
+			close(sock);
+			return -1;
 		}
 	}
 	return sock;
@@ -197,13 +200,17 @@ void __build_sdrll(char *mac)
 	ll->sll_addr[7]  = 0x00;
 }
 
-void __init_brdcast(int *sock)
+int __init_brdcast(int *sock)
 {
 	pthread_mutex_init(&dllbrd.lock, NULL);
 	dllbrd.brdsock = __create_sock(1);
+	if(dllbrd.brdsock < 0) {
+		return -1;
+	}
 	if(sock)
 		*sock = dllbrd.brdsock;
 	__build_brdll();
+	return 0;
 }
 
 void __dll_buildpkt(char *dmac, char *data, int size)
@@ -217,20 +224,27 @@ void __dll_buildpkt(char *dmac, char *data, int size)
 	memcpy(deth->data, data, size);
 }
 
-static void __init_sdr(int *sock)
+static int __init_sdr(int *sock)
 {
 	pthread_mutex_init(&dllsdr.lock, NULL);
 	dllsdr.sdrsock = __create_sock(0);
+	if(dllsdr.sdrsock < 0) {
+		return -1;
+	}
 	if(sock)
 		*sock = dllsdr.sdrsock;
+	return 0;
 }
 
-static void __init_rcv(int *sock)
+static int __init_rcv(int *sock)
 {
 	int ret;
 
 	pthread_mutex_init(&dllrcv.lock, NULL);
 	dllrcv.rcvsock = __create_sock(0);
+	if(dllrcv.rcvsock < 0) {
+		return -1;
+	}
 	if(sock)
 		*sock = dllrcv.rcvsock;
 
@@ -240,8 +254,10 @@ static void __init_rcv(int *sock)
 	if(ret < 0) {
 		sys_err("Bind recive socket failed: %s\n", 
 			strerror(errno));
-		exit(-1);
+		close(dllrcv.rcvsock);
+		return -1;
 	}
+	return 0;
 }
 
 int dll_sendpkt(char *dmac, char *data, int size)
@@ -325,16 +341,31 @@ int dll_rcv(char *data, int size, char *src_mac_out)
 	return (ret > size) ? size : ret;
 }
 
-void dll_init(char *nic, int *rcvsock, int *sdrsock, int *brdsock)
+int dll_init(char *nic, int *rcvsock, int *sdrsock, int *brdsock)
 {
 	assert(nic != NULL);
 
 	int sock = __create_sock(0);
-	__init_nic(sock, nic);
+	if(sock < 0) {
+		return -1;
+	}
+	if(__init_nic(sock, nic) < 0) {
+		close(sock);
+		return -1;
+	}
 	close(sock);
-	__init_pktbuf(&dllnic.mac[0]);
-	__init_brdcast(brdsock);
-	__init_rcv(rcvsock);
-	__init_sdr(sdrsock);
+	if(__init_pktbuf(&dllnic.mac[0]) < 0) {
+		return -1;
+	}
+	if(__init_brdcast(brdsock) < 0) {
+		return -1;
+	}
+	if(__init_rcv(rcvsock) < 0) {
+		return -1;
+	}
+	if(__init_sdr(sdrsock) < 0) {
+		return -1;
+	}
+	return 0;
 }
 

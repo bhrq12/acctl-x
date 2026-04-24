@@ -41,6 +41,11 @@ struct _ippool_t {
 	int left;
 };
 
+/* Mutex lock/unlock macros */
+#define LOCK_INIT(mutex_ptr)     pthread_mutex_init((mutex_ptr), NULL)
+#define LOCK(mutex_ptr)         pthread_mutex_lock((mutex_ptr))
+#define UNLOCK(mutex_ptr)       pthread_mutex_unlock((mutex_ptr))
+
 extern struct _ippool_t *ippool;
 
 /* Pool management */

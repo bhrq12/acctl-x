@@ -69,12 +69,14 @@ static void *__net_dllrecv(void *arg)
 	return NULL;
 }
 
-void net_init(void)
+int net_init(void)
 {
 	int sock;
 
 	/* Initialize epoll */
-	net_epoll_init();
+	if (net_epoll_init() != 0) {
+		return -1;
+	}
 
 	/* Initialize datalink layer and get receive socket */
 	dll_init(argument.nic, &sock, NULL, NULL);
@@ -87,4 +89,6 @@ void net_init(void)
 
 	sys_debug("AP network layer initialized (nic=%s, ETH proto=0x%04x)\n",
 		argument.nic, (unsigned int)ETH_INNO);
+
+	return 0;
 }

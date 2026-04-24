@@ -1,0 +1,140 @@
+# AC Controller JSON Database Schema
+
+## Overview
+The AC Controller uses JSON file-based storage instead of SQL database. This document describes the structure of the JSON data.
+
+## Database File
+- Location: `/etc/acctl/ac.json`
+- Format: JSON
+
+## Top-level Structure
+
+```json
+{
+  "_meta": { ... },
+  "resource": { ... },
+  "nodes": [ ... ],
+  "node_defaults": [ ... ],
+  "node_settings": [ ... ],
+  "ap_groups": [ ... ],
+  "alarm_events": [ ... ],
+  "firmwares": [ ... ],
+  "upgrade_logs": [ ... ],
+  "audit_logs": [ ... ]
+}
+```
+
+## Schema Details
+
+### 1. _meta (Metadata)
+```json
+{
+  "version": "2.0",
+  "created_at": "YYYY-MM-DD HH:MM:SS"
+}
+```
+
+### 2. resource (IP Pool Configuration)
+```json
+{
+  "ip_start": "192.168.100.1",
+  "ip_end": "192.168.100.254",
+  "ip_mask": "255.255.255.0"
+}
+```
+
+### 3. nodes (AP Devices)
+Array of AP node objects:
+```json
+{
+  "hostname": "AP-Office-01",
+  "wan_ip": "192.168.1.10",
+  "wan_mac": "00:11:22:33:44:55",
+  "wifi_ssid": "Office-WiFi",
+  "wifi_channel": 6,
+  "firmware": "v2.0.1",
+  "online_user_num": 5,
+  "ssid_count": 3,
+  "device_down": 0,
+  "group_id": 1,
+  "last_seen": "YYYY-MM-DD HH:MM:SS",
+  "time_first": "YYYY-MM-DD HH:MM:SS"
+}
+```
+
+### 4. ap_groups (AP Groups)
+```json
+{
+  "id": 1,
+  "name": "Office APs",
+  "description": "Access points for office area",
+  "update_policy": "manual",
+  "created_at": "YYYY-MM-DD HH:MM:SS"
+}
+```
+
+### 5. alarm_events (Alarm Events)
+```json
+{
+  "id": 1,
+  "ap_mac": "00:11:22:33:44:55",
+  "alarm_rule_id": 0,
+  "level": 2,
+  "message": "AP connection lost",
+  "raw_data": "",
+  "created_at": "YYYY-MM-DD HH:MM:SS",
+  "acknowledged": 0,
+  "acknowledged_by": "",
+  "acknowledged_at": "",
+  "resolved_at": ""
+}
+```
+
+### 6. firmwares (Firmware Files)
+```json
+{
+  "id": 1,
+  "version": "v2.0.1",
+  "filename": "acctl-v2.0.1.bin",
+  "file_size": 8388608,
+  "sha256": "abc123def456...",
+  "signature": "",
+  "uploaded_at": "YYYY-MM-DD HH:MM:SS",
+  "uploaded_by": "admin",
+  "notes": "",
+  "min_hw_version": "1.0"
+}
+```
+
+### 7. upgrade_logs (Upgrade Logs)
+```json
+{
+  "id": 1,
+  "ap_mac": "00:11:22:33:44:55",
+  "from_version": "v2.0.0",
+  "to_version": "v2.0.1",
+  "status": "success",
+  "started_at": "YYYY-MM-DD HH:MM:SS",
+  "finished_at": "YYYY-MM-DD HH:MM:SS",
+  "error_message": ""
+}
+```
+
+### 8. audit_logs (Audit Logs)
+```json
+{
+  "id": 1,
+  "user": "admin",
+  "action": "config_push",
+  "resource_type": "ap",
+  "resource_id": "00:11:22:33:44:55",
+  "old_value": "",
+  "new_value": "",
+  "ip_address": "",
+  "created_at": "YYYY-MM-DD HH:MM:SS"
+}
+```
+
+## Migration from SQL
+- This JSON schema replaces the old SQL database
+- No migration is needed - new systems will initialize with default JSON structure

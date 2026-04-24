@@ -33,7 +33,6 @@
 #include "link.h"
 #include "thread.h"
 #include "sec.h"
-#include "aphash.h"
 
 volatile int g_running = 1;
 

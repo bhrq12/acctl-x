@@ -261,34 +261,61 @@ static void *net_netlisten(void *arg)
  * Network layer initialization
  * ======================================================================== */
 
-void net_init(void)
+int net_init(void)
 {
 	int sock;
+	int ret;
 
 	/* Initialize epoll multiplexing */
-	net_epoll_init();
+	ret = net_epoll_init();
+	if (ret < 0) {
+		sys_err("epoll initialization failed\n");
+		return -1;
+	}
 	sys_debug("epoll initialized\n");
 
 	/* Initialize datalink layer */
-	dll_init(argument.nic, &sock, NULL, NULL);
-	insert_sockarr(sock, __net_dllrecv, NULL);
+	ret = dll_init(argument.nic, &sock, NULL, NULL);
+	if (ret < 0) {
+		sys_err("datalink layer initialization failed\n");
+		return -1;
+	}
+	ret = insert_sockarr(sock, __net_dllrecv, NULL);
+	if (ret < 0) {
+		sys_err("insert_sockarr failed\n");
+		return -1;
+	}
 	sys_debug("Datalink layer initialized (nic=%s, proto=0x%04x)\n",
 		argument.nic, (unsigned int)ETH_INNO);
 
 	/* Start message processing thread */
-	create_pthread(net_recv, NULL);
+	ret = create_pthread(net_recv, NULL);
+	if (ret < 0) {
+		sys_err("create message processing thread failed\n");
+		return -1;
+	}
 	sys_debug("Message processing thread started\n");
 
 	/* Start TCP listener thread */
-	create_pthread(net_netlisten, NULL);
+	ret = create_pthread(net_netlisten, NULL);
+	if (ret < 0) {
+		sys_err("create TCP listener thread failed\n");
+		return -1;
+	}
 	sys_debug("TCP listener thread started\n");
 
 	/* Start broadcast probe thread */
-	create_pthread(net_dllbrd, NULL);
+	ret = create_pthread(net_dllbrd, NULL);
+	if (ret < 0) {
+		sys_err("create broadcast probe thread failed\n");
+		return -1;
+	}
 	sys_debug("AC broadcast probe thread started (interval=%ds)\n",
 		argument.brditv);
 
 	/* Start AP heartbeat checker thread */
 	// create_pthread(ap_heartbeat_check, NULL);
 	// sys_debug("AP heartbeat checker thread started\n");
+
+	return 0;
 }

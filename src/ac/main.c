@@ -175,8 +175,8 @@ static void cleanup(void)
 	if (ippool)
 		res_ip_clear();
 
-	/* Note: hash table entries are leaked on exit 鈥?acceptable for
-	 * daemon mode since they persist across reloads */
+	/* Cleanup AP hash table */
+	hash_cleanup();
 
 	closelog();
 }
@@ -242,7 +242,10 @@ int main(int argc, char *argv[])
 	sys_info("Message travel thread started\n");
 
 	/* 12. Initialize and start network layer */
-	net_init();
+	if (net_init() != 0) {
+		sys_err("Network layer initialization failed\n");
+		exit(-1);
+	}
 	sys_info("Network layer initialized (TCP port=%d, ETH protocol=0x%04x)\n",
 		argument.port, (unsigned int)ETH_INNO);
 

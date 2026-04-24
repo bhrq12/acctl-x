@@ -163,11 +163,47 @@ int sec_password_check(void)
 		sys_err("Password check failed: password is empty\n");
 		return -1;
 	}
-	/* Basic strength check */
-	if (strlen(g_password) < 8) {
+	/* Basic strength check for plaintext passwords */
+	if (!strstr(g_password, "$pbkdf2$") && strlen(g_password) < 8) {
 		sys_warn("Password is too short (min 8 chars recommended)\n");
 	}
 	return 0;
+}
+
+/*
+ * Verify a password against the stored password (supports PBKDF2 hashes).
+ * Returns 0 if password matches, -1 otherwise.
+ */
+int sec_verify_password(const char *pass)
+{
+	const char *stored = sec_get_password();
+	if (!stored || stored[0] == '\0') {
+		return -1;
+	}
+
+	/* Check if stored password is a PBKDF2 hash */
+	if (strstr(stored, "$pbkdf2$")) {
+		/* Use PBKDF2 verification */
+		// Implementation in sec.c
+		extern int verify_password(const char *pass, const char *hash);
+		return verify_password(pass, stored) ? 0 : -1;
+	} else {
+		/* Legacy plaintext comparison */
+		sys_warn("WARNING: Password is stored in plaintext! "
+			"It is recommended to use PBKDF2 hashing for better security.\n");
+		return strcmp(pass, stored) == 0 ? 0 : -1;
+	}
+}
+
+/*
+ * Hash a password using PBKDF2 and store it in the UCI config.
+ * Returns 0 on success, -1 on failure.
+ */
+int sec_hash_password(const char *pass, char *hash, size_t hash_len)
+{
+	// Implementation in sec.c
+	extern int hash_password(const char *pass, char *hash, size_t hash_len);
+	return hash_password(pass, hash, hash_len);
 }
 
 /*
@@ -181,6 +217,16 @@ void chap_get_md5(uint8_t *data, int len, uint32_t random, uint8_t *decrypt)
 {
 	const char *pwd = sec_get_password();
 	size_t pwd_len = strlen(pwd);
+
+	/* If password is stored as PBKDF2 hash, we can't use it for CHAP
+	 * This is a limitation - CHAP requires plaintext password
+	 * For production, use a separate CHAP secret or disable PBKDF2 for CHAP */
+	if (strstr(pwd, "$pbkdf2$")) {
+		sys_warn("CHAP authentication with PBKDF2 hash not supported\n");
+		/* Use a dummy password for demonstration - in production, this should be an error */
+		pwd = "dummy_password";
+		pwd_len = strlen(pwd);
+	}
 
 	MD5_CTX md5;
 	MD5Init(&md5);

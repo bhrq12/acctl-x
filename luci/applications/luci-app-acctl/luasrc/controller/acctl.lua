@@ -13,6 +13,74 @@ local sys   = require "luci.sys"
 local util  = require "luci.util"
 local http  = require "luci.http"
 local uci   = require "luci.model.uci".cursor()
+local csrf  = require "luci.csrf"
+
+-- ========================================================================
+-- Security: CSRF protection
+-- ========================================================================
+
+local function check_csrf()
+    local token = http.formvalue("token")
+    if not token or token == "" then
+        return false
+    end
+    return csrf.verify_token(token)
+end
+
+local function generate_csrf_token()
+    return csrf.create_token()
+end
+
+-- ========================================================================
+-- Security: Input validation
+-- ========================================================================
+
+local function validate_mac(mac)
+    if not mac or type(mac) ~= "string" then
+        return false
+    end
+    return mac:match("^%x%x:%x%x:%x%x:%x%x:%x%x:%x%x$") ~= nil
+end
+
+local function validate_action(action)
+    local valid_actions = { reboot = true, config = true, upgrade = true }
+    return valid_actions[action] == true
+end
+
+local function validate_cmd(cmd)
+    local allowed = {
+        ["reboot"]              = true,
+        ["uptime"]              = true,
+        ["ifconfig"]            = true,
+        ["iwconfig"]            = true,
+        ["wifi"]                = true,
+        ["cat /proc/uptime"]    = true,
+        ["cat /proc/loadavg"]   = true,
+        ["cat /tmp/ap_status"]  = true,
+    }
+    
+    -- Reject if cmd contains any shell metacharacters or control chars
+    local shell_metachar = "[;&|`$(){}<>%!~\n\r%[%]%*%?]"
+    if cmd:match(shell_metachar) then
+        return false
+    end
+    
+    -- Reject if command contains path separators not in whitelist
+    if cmd:match("/") and not allowed[cmd] then
+        return false
+    end
+    
+    -- Exact whitelist match
+    return allowed[cmd] == true
+end
+
+local function sanitize_input(input, max_len)
+    if not input or type(input) ~= "string" then
+        return ""
+    end
+    max_len = max_len or 256
+    return input:gsub("[^%w%p ]", ""):sub(1, max_len)
+end
 
 -- ========================================================================
 -- Helper: run acctl-cli and parse JSON response
@@ -184,9 +252,19 @@ end
 -- ========================================================================
 
 function api_aps_action()
+    local result = { code = 0, message = "", affected = 0 }
+
+    -- Check CSRF token
+    if not check_csrf() then
+        result.code    = 403
+        result.message = "CSRF token validation failed"
+        http.prepare_content("application/json")
+        http.write_json(result)
+        return
+    end
+
     local action = http.formvalue("action")
     local macs   = http.formvalue("macs") or ""
-    local result = { code = 0, message = "", affected = 0 }
 
     if action == "" or macs == "" then
         result.code    = 400
@@ -196,9 +274,8 @@ function api_aps_action()
         return
     end
 
-    -- Validate action against whitelist
-    local valid_actions = { reboot = true, config = true, upgrade = true }
-    if not valid_actions[action] then
+    -- Validate action
+    if not validate_action(action) then
         result.code    = 400
         result.message = "Invalid action"
         http.prepare_content("application/json")
@@ -206,8 +283,10 @@ function api_aps_action()
         return
     end
 
-    -- Audit log (use only validated action, sanitize macs for shell safety)
-    local safe_macs = macs:gsub("[^%x:, ]", "")
+    -- Sanitize macs
+    local safe_macs = sanitize_input(macs, 500)
+
+    -- Audit log
     cli_output(string.format(
         "acctl-cli audit admin %s ap_batch '%s' '' '' ''",
         action, safe_macs:sub(1, 50)))
@@ -264,8 +343,18 @@ end
 -- ========================================================================
 
 function api_alarms_ack()
-    local ids = http.formvalue("ids") or ""
     local result = { code = 0, acknowledged = 0 }
+
+    -- Check CSRF token
+    if not check_csrf() then
+        result.code    = 403
+        result.message = "CSRF token validation failed"
+        http.prepare_content("application/json")
+        http.write_json(result)
+        return
+    end
+
+    local ids = http.formvalue("ids") or ""
 
     if ids == "all" then
         cli_output("acctl-cli ack-all")
@@ -344,9 +433,19 @@ end
 -- ========================================================================
 
 function api_cmd()
+    local result = { code = 0, message = "" }
+
+    -- Check CSRF token
+    if not check_csrf() then
+        result.code    = 403
+        result.message = "CSRF token validation failed"
+        http.prepare_content("application/json")
+        http.write_json(result)
+        return
+    end
+
     local mac = http.formvalue("mac")
     local cmd = http.formvalue("cmd")
-    local result = { code = 0, message = "" }
 
     if not mac or not cmd or mac == "" or cmd == "" then
         result.code    = 400
@@ -356,52 +455,29 @@ function api_cmd()
         return
     end
 
-    -- Command whitelist validation
-    local allowed = {
-        ["reboot"]              = true,
-        ["uptime"]              = true,
-        ["ifconfig"]            = true,
-        ["iwconfig"]            = true,
-        ["wifi"]                = true,
-        ["cat /proc/uptime"]    = true,
-        ["cat /proc/loadavg"]   = true,
-        ["cat /tmp/ap_status"]  = true,
-    }
-
-    -- Exact match: command must exactly equal whitelist entry
-    -- Reject if cmd contains any shell metacharacters or control chars
-    local shell_metachar = "[;&|`$(){}<>%!~\n\r%[%]%*%?]"
-    if cmd:match(shell_metachar) then
-        result.code    = 403
-        result.message = "Command contains forbidden characters"
+    -- Validate MAC address
+    if not validate_mac(mac) then
+        result.code    = 400
+        result.message = "Invalid MAC address"
         http.prepare_content("application/json")
         http.write_json(result)
         return
     end
 
-    -- Reject if command contains path separators not in whitelist
-    if cmd:match("/") and not allowed[cmd] then
+    -- Validate command
+    if not validate_cmd(cmd) then
         result.code    = 403
-        result.message = "Command contains forbidden characters"
+        result.message = "Command not allowed"
         http.prepare_content("application/json")
         http.write_json(result)
         return
     end
 
-    -- Exact whitelist match
-    local found = allowed[cmd] == true
+    -- Sanitize inputs
+    local safe_mac = sanitize_input(mac, 20)
+    local safe_cmd = sanitize_input(cmd, 100)
 
-    if not found then
-        result.code    = 403
-        result.message = "Command not in whitelist"
-        http.prepare_content("application/json")
-        http.write_json(result)
-        return
-    end
-
-    -- Audit (sanitize inputs for shell safety)
-    local safe_mac = mac:gsub("[^%x:]", ""):sub(1, 20)
-    local safe_cmd = cmd:gsub("'", "'\\''"):sub(1, 100)
+    -- Audit
     cli_output(string.format(
         "acctl-cli audit admin EXEC ap '%s' '' '%s' ''",
         safe_mac, safe_cmd))
@@ -417,6 +493,16 @@ end
 
 function api_restart()
     local result = { code = 0, message = "" }
+
+    -- Check CSRF token
+    if not check_csrf() then
+        result.code    = 403
+        result.message = "CSRF token validation failed"
+        http.prepare_content("application/json")
+        http.write_json(result)
+        return
+    end
+
     if is_running() then
         sys.exec("/etc/init.d/acctl restart > /dev/null 2>&1")
         result.message = "AC Controller restarting..."

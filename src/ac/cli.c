@@ -114,6 +114,44 @@ static const char *safe_get_str(json_object *obj, const char *key)
 	return "";
 }
 
+/* Helper: escape JSON string by replacing special characters */
+static void json_escape(const char *src, char *dest, size_t dest_size)
+{
+	size_t i = 0, j = 0;
+	while (src[i] && j < dest_size - 1) {
+		switch (src[i]) {
+		case '\\':
+		case '"':
+		case '\b':
+		case '\f':
+		case '\n':
+		case '\r':
+		case '\t':
+			dest[j++] = '\\';
+			switch (src[i]) {
+			case '\b': dest[j++] = 'b'; break;
+			case '\f': dest[j++] = 'f'; break;
+			case '\n': dest[j++] = 'n'; break;
+			case '\r': dest[j++] = 'r'; break;
+			case '\t': dest[j++] = 't'; break;
+			default:    dest[j++] = src[i]; break;
+			}
+			break;
+		default:
+			if (src[i] >= 0 && src[i] < 32) {
+				// Control character, escape as \uXXXX
+				snprintf(dest + j, dest_size - j, "\\u%04x", (unsigned char)src[i]);
+				j += 6;
+			} else {
+				dest[j++] = src[i];
+			}
+			break;
+		}
+		i++;
+	}
+	dest[j] = '\0';
+}
+
 /* Helper: get int from json object, returns 0 if missing */
 static int safe_get_int(json_object *obj, const char *key)
 {
@@ -160,11 +198,15 @@ static int cmd_groups(void)
     for (i = 0; i < len; i++) {
         json_object *g = json_object_array_get_idx(groups, i);
         if (i > 0) printf(",");
+        char name[512], desc[512], policy[512];
+        json_escape(safe_get_str(g, "name"), name, sizeof(name));
+        json_escape(safe_get_str(g, "description"), desc, sizeof(desc));
+        json_escape(safe_get_str(g, "update_policy"), policy, sizeof(policy));
         printf("{\"id\":%s,\"name\":\"%s\",\"description\":\"%s\",\"policy\":\"%s\"}",
             safe_get_int_str(g, "id"),
-            safe_get_str(g, "name"),
-            safe_get_str(g, "description"),
-            safe_get_str(g, "update_policy"));
+            name,
+            desc,
+            policy);
     }
     printf("]}\n");
     json_object_put(root);
@@ -192,22 +234,30 @@ static int cmd_aps(int limit)
     for (i = 0; i < len && count < limit; i++) {
         json_object *n = json_object_array_get_idx(nodes, i);
         if (i > 0) printf(",");
+        char mac[100], hostname[512], wan_ip[100], wifi_ssid[512], firmware[512], wifi_channel[50], wifi_encryption[100];
+        json_escape(safe_get_str(n, "mac"), mac, sizeof(mac));
+        json_escape(safe_get_str(n, "hostname"), hostname, sizeof(hostname));
+        json_escape(safe_get_str(n, "wan_ip"), wan_ip, sizeof(wan_ip));
+        json_escape(safe_get_str(n, "wifi_ssid"), wifi_ssid, sizeof(wifi_ssid));
+        json_escape(safe_get_str(n, "firmware"), firmware, sizeof(firmware));
+        json_escape(safe_get_str(n, "wifi_channel"), wifi_channel, sizeof(wifi_channel));
+        json_escape(safe_get_str(n, "wifi_encryption"), wifi_encryption, sizeof(wifi_encryption));
         printf("{\"mac\":\"%s\",\"hostname\":\"%s\",\"wan_ip\":\"%s\","
                "\"wifi_ssid\":\"%s\",\"firmware\":\"%s\","
                "\"online_users\":%s,\"device_down\":%s,\"last_seen\":%s,\"group_id\":%s,"
-               "\"ssid_count\":%s,\"wifi_channel\":%s,\"wifi_encryption\":\"%s\"}",
-            safe_get_str(n, "mac"),
-            safe_get_str(n, "hostname"),
-            safe_get_str(n, "wan_ip"),
-            safe_get_str(n, "wifi_ssid"),
-            safe_get_str(n, "firmware"),
+               "\"ssid_count\":%s,\"wifi_channel\":\"%s\",\"wifi_encryption\":\"%s\"}",
+            mac,
+            hostname,
+            wan_ip,
+            wifi_ssid,
+            firmware,
             safe_get_int_str(n, "online_user_num"),
             safe_get_int_str(n, "device_down"),
             safe_get_int_str(n, "last_seen"),
             safe_get_int_str(n, "group_id"),
             safe_get_int_str(n, "ssid_count"),
-            safe_get_str(n, "wifi_channel"),
-            safe_get_str(n, "wifi_encryption"));
+            wifi_channel,
+            wifi_encryption);
         count++;
     }
     printf("]}\n");
@@ -240,14 +290,18 @@ static int cmd_alarms(int limit)
         if (i < len - 1) printf(",");
         int lvl = safe_get_int(a, "level");
         const char *lstr = (lvl >= 0 && lvl <= 3) ? level_str[lvl] : "unknown";
-        printf("{\"id\":%s,\"mac\":\"%s\",\"level\":\"%s\","
+        char mac[100], message[1024], ts[100];
+        json_escape(safe_get_str(a, "ap_mac"), mac, sizeof(mac));
+        json_escape(safe_get_str(a, "message"), message, sizeof(message));
+        json_escape(safe_get_str(a, "created_at"), ts, sizeof(ts));
+        printf("{\"id\":%s,\"mac\":\"%s\",\"level\":\"%s\"," 
                "\"message\":\"%s\",\"ack\":%s,\"ts\":\"%s\"}",
             safe_get_int_str(a, "id"),
-            safe_get_str(a, "ap_mac"),
+            mac,
             lstr,
-            safe_get_str(a, "message"),
+            message,
             safe_get_int_str(a, "acknowledged"),
-            safe_get_str(a, "created_at"));
+            ts);
         count++;
     }
     printf("]}\n");
@@ -387,13 +441,18 @@ static int cmd_firmwares(void)
     for (i = len - 1; i >= 0; i--) {
         json_object *fw = json_object_array_get_idx(fws, i);
         if (i < len - 1) printf(",");
+        char version[100], filename[512], sha256[100], uploaded_at[100];
+        json_escape(safe_get_str(fw, "version"), version, sizeof(version));
+        json_escape(safe_get_str(fw, "filename"), filename, sizeof(filename));
+        json_escape(safe_get_str(fw, "sha256"), sha256, sizeof(sha256));
+        json_escape(safe_get_str(fw, "uploaded_at"), uploaded_at, sizeof(uploaded_at));
         printf("{\"version\":\"%s\",\"filename\":\"%s\","
                "\"size\":%d,\"sha256\":\"%s\",\"uploaded_at\":\"%s\"}",
-            safe_get_str(fw, "version"),
-            safe_get_str(fw, "filename"),
+            version,
+            filename,
             safe_get_int(fw, "file_size"),
-            safe_get_str(fw, "sha256"),
-            safe_get_str(fw, "uploaded_at"));
+            sha256,
+            uploaded_at);
     }
     printf("]}\n");
     json_object_put(root);

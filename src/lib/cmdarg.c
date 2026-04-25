@@ -97,6 +97,11 @@ void help()
 
 static void __early_is_debug(int argc,char *argv[])
 {
+	/* Handle SIGHUP case: NULL arguments, keep existing debug level */
+	if(argc == 0 && argv == NULL) {
+		return;
+	}
+
 	int i, ret;
 	for(i = 0; i < argc; i++) {
 		ret = strcmp(argv[i], "--debug");
@@ -112,6 +117,11 @@ static void __early_is_debug(int argc,char *argv[])
 
 static void __early_init(int argc, char *argv[])
 {
+	/* Handle SIGHUP case: NULL arguments, don't clear existing config */
+	if(argc == 0 && argv == NULL) {
+		return;
+	}
+
 	if(argc < 2) {
 		help();
 		exit(-1);
@@ -135,6 +145,11 @@ static long int __strtol(const char *nptr, char **endptr, int base)
 
 void proc_cmdarg(int argc, char *argv[])
 {
+	/* Handle SIGHUP case: NULL arguments, only reload UCI config */
+	if (argc == 0 && argv == NULL) {
+		return;
+	}
+
 	int short_arg;
 	__early_init(argc, argv);
 

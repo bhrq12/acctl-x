@@ -57,6 +57,11 @@ static void signal_handler(int sig)
 	if (sig == SIGINT || sig == SIGTERM) {
 		sys_info("Received signal %d, shutting down...\n", sig);
 		g_running = 0;
+	} else if (sig == SIGHUP) {
+		sys_info("Received SIGHUP, reloading configuration...\n");
+		/* Re-parse arguments (UCI config + command line) */
+		proc_arg(0, NULL);
+		sys_info("Configuration reloaded successfully\n");
 	}
 }
 

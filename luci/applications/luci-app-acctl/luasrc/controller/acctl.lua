@@ -370,13 +370,70 @@ function api_cmd()
 
     -- Exact match: command must exactly equal whitelist entry
     -- Reject if cmd contains any shell metacharacters or control chars
-    local shell_metachar = "[;&|`$(){}<>%!~\n\r%[%]%*%?]"
-    if cmd:match(shell_metachar) then
-        result.code    = 403
-        result.message = "Command contains forbidden characters"
-        http.prepare_content("application/json")
-        http.write_json(result)
-        return
+    local dangerous_patterns = {
+        ";",     -- command chaining
+        "|",     -- pipe
+        "`",     -- command substitution
+        "$(" ,   -- command substitution variant
+        "&",     -- background
+        "&&",    -- AND chaining
+        "||",    -- OR chaining
+        ">",     -- output redirect
+        "<",     -- input redirect
+        ">>",    -- append redirect
+        "<<",    -- heredoc
+        "~/",    -- home dir expansion
+        "/etc/", -- system config access
+        "/bin/", -- binary dir access
+        "/usr/", -- usr dir access
+        "/var/", -- var dir access
+        "/dev/", -- device access
+        "/proc/",-- procfs access
+        "/root/",-- root dir access
+        "../",   -- directory traversal
+        "0>",    -- fd redirect
+        "1>",    -- stdout redirect
+        "2>",    -- stderr redirect
+        "nohup", -- background process
+        "screen",-- screen sessions
+        "tmux",  -- tmux sessions
+        "wget",  -- network download
+        "curl",  -- network download
+        "nc ",   -- netcat
+        "ncat",  -- netcat variant
+        "python",-- python interpreter
+        "perl",  -- perl interpreter
+        "ruby",  -- ruby interpreter
+        "php",   -- php interpreter
+        "bash",  -- bash shell
+        "sh -c", -- explicit shell
+        "exec",  -- exec call
+        "eval",  -- eval
+        "chmod", -- permission change
+        "chown", -- ownership change
+        "rm -rf",-- recursive delete
+        "mkfs",  -- filesystem creation
+        "dd ",   -- raw disk write
+        "fdisk", -- disk partitioning
+        "mount", -- mount filesystem
+        "umount",-- unmount filesystem
+        "passwd",-- password change
+        "su ",   -- switch user
+        "sudo",  -- privilege escalation
+        "shutdown", -- system shutdown
+        "halt",  -- halt system
+        "poweroff", -- power off
+    }
+
+    -- Check for dangerous patterns
+    for _, pattern in ipairs(dangerous_patterns) do
+        if cmd:find(pattern, 1, true) then
+            result.code    = 403
+            result.message = "Command contains forbidden characters"
+            http.prepare_content("application/json")
+            http.write_json(result)
+            return
+        end
     end
 
     -- Reject if command contains path separators not in whitelist

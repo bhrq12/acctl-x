@@ -254,15 +254,35 @@ int sec_exec_command(const char *cmd, char *output, size_t output_len)
 		return -1;
 	}
 
-	if (pid == 0) {
+	/* Parse command into arguments */
+    char *args[64];
+    int arg_count = 0;
+    char *cmd_copy = strdup(cmd);
+    if (!cmd_copy) {
+        close(pipefd[0]);
+        close(pipefd[1]);
+        sys_err("strdup failed: %s\n", strerror(errno));
+        return -1;
+    }
+
+    char *token = strtok(cmd_copy, " ");
+    while (token && arg_count < 63) {
+        args[arg_count++] = token;
+        token = strtok(NULL, " ");
+    }
+    args[arg_count] = NULL;
+
+    if (pid == 0) {
 		/* Child: redirect stdout/stderr to pipe, execute command */
 		close(pipefd[0]);
 		dup2(pipefd[1], STDOUT_FILENO);
 		dup2(pipefd[1], STDERR_FILENO);
 		close(pipefd[1]);
-		execlp("sh", "sh", "-c", cmd, (char *)NULL);
+		execvp(args[0], args);
 		_exit(127);
 	}
+
+    free(cmd_copy);
 
 	/* Parent: read output from pipe with timeout */
 	close(pipefd[1]);
@@ -386,7 +406,7 @@ void sec_record_random(uint32_t random)
  * 3. Rate limiting â€?per-AP and global rate tracking
  * ======================================================================== */
 
-#define RATE_TABLE_SIZE  (256)
+#define RATE_TABLE_SIZE  (2048)
 
 struct rate_entry {
 	char     mac[ETH_ALEN];

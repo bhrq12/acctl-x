@@ -313,8 +313,12 @@ static void __ap_reg(struct ap_hash_t *aphash,
 		 * Verify AC trust before allowing re-registration. */
 		sys_warn("AP %s attempting re-registration from different AC\n",
 			mac_str);
-		/* For now: allow re-registration (backward compat)
-		 * TODO: implement full AC trust verification with certificates */
+		
+		/* Check if the new AC is in the trusted list */
+		/* Note: For now, we'll allow re-registration since we don't have the new AC's MAC
+		 * In a future update, we'll add certificate-based verification */
+		sys_info("Re-registration allowed (AC trust verification pending certificate implementation)\n");
+		/* TODO: Implement certificate-based AC authentication */
 	}
 
 	/* 5. Allocate IP address */

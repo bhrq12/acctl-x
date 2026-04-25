@@ -116,19 +116,48 @@ static json_object *json_load_file(const char *path)
     }
     buf[st.st_size] = '\0';
 
+    /* Decrypt if encrypted */
+    const char *password = sec_get_password();
+    if (password && password[0]) {
+        char *decrypted = malloc(st.st_size + 1);
+        if (decrypted) {
+            xor_decrypt(buf, st.st_size, password, decrypted);
+            json_object *obj = json_tokener_parse(decrypted);
+            free(decrypted);
+            free(buf);
+            return obj;
+        }
+    }
+
     json_object *obj = json_tokener_parse(buf);
     free(buf);
     return obj;
 }
 
 /* Save JSON file: write to temp first, then atomic rename */
+/* Simple XOR encryption for database (placeholder for AES) */
+static void xor_encrypt(const char *input, size_t len, const char *key, char *output)
+{
+    size_t key_len = strlen(key);
+    for (size_t i = 0; i < len; i++) {
+        output[i] = input[i] ^ key[i % key_len];
+    }
+    output[len] = '\0';
+}
+
+static void xor_decrypt(const char *input, size_t len, const char *key, char *output)
+{
+    /* XOR is symmetric */
+    xor_encrypt(input, len, key, output);
+}
+
 static int json_save_file(const char *path, json_object *obj)
 {
     /* Write to temp file first, then atomic rename */
     char tmp_path[256];
     snprintf(tmp_path, sizeof(tmp_path), "%s.tmp.%d", path, getpid());
 
-    int fd = open(tmp_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    int fd = open(tmp_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
     if (fd < 0) {
         set_error("Cannot create temp file %s: %s", tmp_path, strerror(errno));
         return -1;
@@ -138,18 +167,49 @@ static int json_save_file(const char *path, json_object *obj)
 
     const char *str = json_object_to_json_string_ext(obj,
         JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_SPACED);
+    size_t str_len = strlen(str);
 
-    ssize_t written = write(fd, str, strlen(str));
-    write(fd, "\n", 1);
+    /* Get encryption key from password */
+    const char *password = sec_get_password();
+    if (password && password[0]) {
+        char *encrypted = malloc(str_len + 1);
+        if (encrypted) {
+            xor_encrypt(str, str_len, password, encrypted);
+            ssize_t written = write(fd, encrypted, str_len);
+            write(fd, "\n", 1);
+            free(encrypted);
+            if (written < 0) {
+                unlink(tmp_path);
+                set_error("Write error: %s", strerror(errno));
+                file_lock(fd, F_UNLCK);
+                close(fd);
+                return -1;
+            }
+        } else {
+            ssize_t written = write(fd, str, str_len);
+            write(fd, "\n", 1);
+            if (written < 0) {
+                unlink(tmp_path);
+                set_error("Write error: %s", strerror(errno));
+                file_lock(fd, F_UNLCK);
+                close(fd);
+                return -1;
+            }
+        }
+    } else {
+        ssize_t written = write(fd, str, str_len);
+        write(fd, "\n", 1);
+        if (written < 0) {
+            unlink(tmp_path);
+            set_error("Write error: %s", strerror(errno));
+            file_lock(fd, F_UNLCK);
+            close(fd);
+            return -1;
+        }
+    }
 
     file_lock(fd, F_UNLCK);
     close(fd);
-
-    if (written < 0) {
-        unlink(tmp_path);
-        set_error("Write error: %s", strerror(errno));
-        return -1;
-    }
 
     /* Backup existing file */
     rename(path, DB_BACKUP);

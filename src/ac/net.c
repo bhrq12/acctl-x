@@ -3,7 +3,7 @@
  *
  *       Filename:  net.c
  *
- *    Description:  AC network layer �?datalink broadcast + TCP listener.
+ *    Description:  AC network layer - datalink broadcast + TCP listener.
  *                  - Datalink layer: sends AC broadcast probe packets
  *                  - TCP listener: accepts AP connections
  *                  - Uses epoll for async I/O multiplexing
@@ -44,7 +44,7 @@
 #include <pthread.h>
 
 /* ========================================================================
- * Datalink layer receive �?handle ETH broadcast packets
+ * Datalink layer receive - handle ETH broadcast packets
  * ======================================================================== */
 
 static void *__net_dllrecv(void *arg)
@@ -80,7 +80,7 @@ static void *__net_dllrecv(void *arg)
 	/* Use Ethernet-layer source MAC for routing (not msg header MAC) */
 	struct ap_hash_t *aphash = hash_ap((const unsigned char *)src_mac);
 	if (!aphash) {
-		/* Unknown AP �?create new entry */
+		/* Unknown AP - create new entry */
 		aphash = hash_ap_add((const unsigned char *)src_mac);
 		if (!aphash) {
 			free(msg->data);
@@ -102,7 +102,7 @@ static void *__net_dllrecv(void *arg)
 }
 
 /* ========================================================================
- * TCP receive �?handle TCP stream from AP
+ * TCP receive - handle TCP stream from AP
  * ======================================================================== */
 
 void *__net_netrcv(void *arg)
@@ -181,7 +181,7 @@ void *__net_netrcv(void *arg)
 }
 
 /* ========================================================================
- * AC broadcast probe thread �?periodically announce AC presence
+ * AC broadcast probe thread - periodically announce AC presence
  * ======================================================================== */
 
 static void *net_dllbrd(void *arg)
@@ -216,12 +216,12 @@ static void *net_dllbrd(void *arg)
 		sleep(argument.brditv);
 	}
 
-	/* Never reached �?thread runs forever */
+	/* Never reached - thread runs forever */
 	return NULL;
 }
 
 /* ========================================================================
- * TCP listener thread �?accept incoming AP connections
+ * TCP listener thread - accept incoming AP connections
  * ======================================================================== */
 
 static void *net_netlisten(void *arg)

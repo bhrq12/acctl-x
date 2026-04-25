@@ -70,16 +70,16 @@ static int net_nonblock(int socket)
 
 	return 0;
 }
-int net_epoll_init()
+void net_epoll_init()
 {
 	epl = epoll_create1(EPOLL_CLOEXEC);
 	if(epl < 0) {
 		sys_err("Create epoll failed: %s(%d)\n", 
-			strerror(errno), errno);
-		return -1;
+			strerror(epl), epl);
+		exit(-1);
 	}
 
-	return 0;
+	return;
 }
 
 #define EPOLLNUM 	(10)
@@ -144,19 +144,19 @@ int net_send(int proto, int sock, char *dmac, char *msg, int size)
 	}
 }
 
-int
+struct sockarr_t *
 insert_sockarr(int sock, void *(*func) (void *), void *arg)
 {
 
 	int ret;
 	ret = net_nonblock(sock);
 	if(ret < 0)
-		return -1;
+		return NULL;
 
 	struct sockarr_t *__sock = malloc(sizeof(struct sockarr_t));
 	if(__sock == NULL) {
 		sys_err("Malloc sockarr failed: %s\n", strerror(errno));
-		return -1;
+		exit(-1);
 	}
 	__sock->ev.events = EPOLLIN | EPOLLRDHUP | EPOLLET;
 	__sock->ev.data.ptr = __sock;
@@ -171,8 +171,7 @@ insert_sockarr(int sock, void *(*func) (void *), void *arg)
 	if(ret < 0) {
 		sys_err("Add epoll fd failed: %s(%d)\n", 
 			strerror(errno), errno);
-		free(__sock);
-		return -1;
+		exit(-1);
 	}
 
 	SOCKARR_LOCK();
@@ -180,7 +179,7 @@ insert_sockarr(int sock, void *(*func) (void *), void *arg)
 	__tail = &__sock->next;
 	SOCKARR_UNLOCK();
 
-	return 0;
+	return __sock;
 }
 
 int delete_sockarr(int sock)

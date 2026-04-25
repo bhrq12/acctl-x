@@ -22,7 +22,7 @@
 #include "thread.h"
 #include "log.h"
 
-int create_pthread(void *(*start_routine) (void *), void *arg)
+void create_pthread(void *(*start_routine) (void *), void *arg)
 {
 	int ret;
 	pthread_t pid;
@@ -30,15 +30,13 @@ int create_pthread(void *(*start_routine) (void *), void *arg)
 	if(ret != 0) {
 		sys_err("Create pthread failed: %s(%d)\n", 
 			strerror(ret), ret);
-		return -1;
+		exit(-1);
 	}
 
 	ret = pthread_detach(pid);
 	if(ret != 0) {
 		sys_err("Detach pthread failed: %s(%d)\n", 
 			strerror(ret), ret);
-		return -1;
+		exit(-1);
 	}
-
-	return 0;
 }

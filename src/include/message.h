@@ -39,8 +39,9 @@ void message_free(struct message_t *msg);
 void *message_travel(void *arg);
 void message_init(void);
 
-/* AC-side message handling */
+/* AC-side message travel (different from AP-side) */
 struct ap_hash_t;
+void *ac_message_travel(void *arg);
 void ac_message_insert(struct ap_hash_t *aphash, struct message_t *msg);
 
 #endif /* __MESSAGE_H__ */

@@ -145,8 +145,7 @@ static void *ac_message_travel(void *arg)
 		int batch_count = 0;
 
 		for (int i = 0; i < AP_HASH_SIZE; i++) {
-			pthread_mutex_lock(&g_ap_table.bucket_locks[i]);
-
+			pthread_mutex_lock(&g_ap_table.lock);
 			struct hlist_node *n;
 			hlist_for_each_entry(aphash, n,
 				&g_ap_table.buckets[i],
@@ -166,8 +165,7 @@ static void *ac_message_travel(void *arg)
 					batch_count++;
 				}
 			}
-
-			pthread_mutex_unlock(&g_ap_table.bucket_locks[i]);
+			pthread_mutex_unlock(&g_ap_table.lock);
 		}
 
 		/* Process messages outside the lock */

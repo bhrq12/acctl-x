@@ -31,9 +31,8 @@
  * net_init — initialize the network layer
  *   AC: starts TCP listener + ETH broadcast thread
  *   AP: starts ETH receive + epoll event loop
- *   Returns: 0 on success, -1 on error
  */
-int net_init(void);
+void net_init(void);
 
 /*
  * net_send — send a packet via the specified protocol

@@ -3,40 +3,11 @@
 // AC Controller Status Auto-Refresh
 (function() {
     var refreshInterval = 5000; // 5 seconds
-    var isLoading = false;
-    
-    function showLoading() {
-        var el = document.getElementById('ac-status-bar');
-        if (el) {
-            el.innerHTML = '<span class="loading-spinner"></span> Loading AC Controller status...';
-            el.classList.add('loading');
-        }
-        isLoading = true;
-    }
-    
-    function showError(message) {
-        var el = document.getElementById('ac-status-bar');
-        if (el) {
-            el.innerHTML = '<span style="color: #dc3545;">Error: ' + message + '</span>';
-            el.classList.add('error');
-        }
-        isLoading = false;
-    }
-    
     function fetchStatus() {
-        if (isLoading) return;
-        
-        showLoading();
-        
         XHR.get('<%=controller%>/admin/network/acctl/status', null,
             function(x, data) {
-                isLoading = false;
-                var el = document.getElementById('ac-status-bar');
-                if (el) {
-                    el.classList.remove('loading', 'error');
-                }
-                
                 if (data) {
+                    var el = document.getElementById('ac-status-bar');
                     if (el) {
                         el.innerHTML = String.format(
                             'AP Online: <strong>{0}</strong> / <strong>{1}</strong> | ' +
@@ -50,64 +21,26 @@
                             data.running ? '● Running' : '○ Stopped'
                         );
                     }
-                } else {
-                    showError('Failed to load status data');
                 }
-            },
-            function(x) {
-                isLoading = false;
-                showError('Network error: ' + (x.statusText || 'Unknown error'));
             }
         );
     }
-    
     window.addEventListener('load', function() {
         setInterval(fetchStatus, refreshInterval);
         fetchStatus();
     });
 })();
 </script>
-<style type="text/css">
-    #ac-status-bar {
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 4px;
-        padding: 8px 16px;
-        margin-bottom: 16px;
-        font-size: 13px;
-        color: #495057;
-        transition: all 0.3s ease;
-    }
-    
-    #ac-status-bar.loading {
-        background: #e3f2fd;
-        border-color: #bbdefb;
-    }
-    
-    #ac-status-bar.error {
-        background: #ffebee;
-        border-color: #ffcdd2;
-    }
-    
-    .loading-spinner {
-        display: inline-block;
-        width: 16px;
-        height: 16px;
-        border: 2px solid #f3f3f3;
-        border-top: 2px solid #3498db;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin-right: 8px;
-        vertical-align: middle;
-    }
-    
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-</style>
 <%+header%>
 
-<div id="ac-status-bar">
+<div id="ac-status-bar" style="
+    background:#f8f9fa;
+    border:1px solid #dee2e6;
+    border-radius:4px;
+    padding:8px 16px;
+    margin-bottom:16px;
+    font-size:13px;
+    color:#495057;
+">
     <%:Loading AC Controller status...%>
 </div>

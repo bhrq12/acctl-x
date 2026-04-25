@@ -56,14 +56,5 @@ int  sec_init(void);
 /* 8. Password (used by chap.c) */
 const char *sec_get_password(void);
 int  sec_password_check(void);
-int  sec_verify_password(const char *pass);
-int  sec_hash_password(const char *pass, char *hash, size_t hash_len);
-
-/* 9. PBKDF2 and password verification (exported for use by chap.c) */
-void sec_pbkdf2_sha256(const char *pass, size_t pass_len,
-                       const uint8_t *salt, size_t salt_len,
-                       uint32_t iterations, uint8_t *out, size_t out_len);
-int  verify_password(const char *pass, const char *hash);
-int  hash_password(const char *pass, char *hash, size_t hash_len);
 
 #endif /* __SEC_H__ */

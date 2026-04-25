@@ -42,5 +42,5 @@ static inline void LOCK_INIT(THREAD *name)
 	pthread_mutex_init(name, NULL);
 }
 
-int create_pthread(void *(*start_routine) (void *), void *arg);
+void create_pthread(void *(*start_routine) (void *), void *arg);
 #endif /* __THREAD_H__ */

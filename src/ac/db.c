@@ -135,6 +135,9 @@ static json_object *json_load_file(const char *path)
     return obj;
 }
 
+/* Forward declaration for XOR decryption (used by json_load_file) */
+static void xor_decrypt(const char *input, size_t len, const char *key, char *output);
+
 /* Save JSON file: write to temp first, then atomic rename */
 /* Simple XOR encryption for database (placeholder for AES) */
 static void xor_encrypt(const char *input, size_t len, const char *key, char *output)

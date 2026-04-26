@@ -23,6 +23,7 @@
 #include <stdint.h>
 
 #include "log.h"
+#include "thread.h"
 #include "resource.h"
 #include "db.h"
 #include "arg.h"

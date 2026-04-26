@@ -82,7 +82,11 @@ int main(int argc, char *argv[])
 	}
 
 	/* Initialize network (epoll + datalink layer) */
-	net_init();
+	int net_ret = net_init();
+	if (net_ret < 0) {
+		sys_err("Network layer initialization failed\n");
+		return -1;
+	}
 
 	/* Initialize and start reporting */
 	init_report();

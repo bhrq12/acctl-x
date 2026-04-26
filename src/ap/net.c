@@ -69,7 +69,7 @@ static void *__net_dllrecv(void *arg)
 	return NULL;
 }
 
-void net_init(void)
+int net_init(void)
 {
 	int sock;
 
@@ -80,11 +80,17 @@ void net_init(void)
 	dll_init(argument.nic, &sock, NULL, NULL);
 
 	/* Register ETH receive socket with epoll */
-	insert_sockarr(sock, __net_dllrecv, NULL);
+	struct sockarr_t *sarr = insert_sockarr(sock, __net_dllrecv, NULL);
+	if (!sarr) {
+		sys_err("insert_sockarr failed\n");
+		return -1;
+	}
 
 	/* Start the epoll event loop thread */
 	create_pthread(net_recv, NULL);
 
 	sys_debug("AP network layer initialized (nic=%s, ETH proto=0x%04x)\n",
 		argument.nic, (unsigned int)ETH_INNO);
+
+	return 0;
 }

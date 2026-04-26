@@ -247,7 +247,12 @@ int main(int argc, char *argv[])
 	sys_info("Message travel thread started\n");
 
 	/* 12. Initialize and start network layer */
-	net_init();
+	int net_ret = net_init();
+	if (net_ret < 0) {
+		sys_err("Network layer initialization failed\n");
+		cleanup();
+		return -1;
+	}
 	sys_info("Network layer initialized (TCP port=%d, ETH protocol=0x%04x)\n",
 		argument.port, (unsigned int)ETH_INNO);
 

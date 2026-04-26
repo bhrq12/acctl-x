@@ -264,24 +264,15 @@ static void *net_netlisten(void *arg)
 int net_init(void)
 {
 	int sock;
-	int ret;
 
 	/* Initialize epoll multiplexing */
-	ret = net_epoll_init();
-	if (ret < 0) {
-		sys_err("epoll initialization failed\n");
-		return -1;
-	}
+	net_epoll_init();
 	sys_debug("epoll initialized\n");
 
 	/* Initialize datalink layer */
-	ret = dll_init(argument.nic, &sock, NULL, NULL);
-	if (ret < 0) {
-		sys_err("datalink layer initialization failed\n");
-		return -1;
-	}
-	ret = insert_sockarr(sock, __net_dllrecv, NULL);
-	if (ret < 0) {
+	dll_init(argument.nic, &sock, NULL, NULL);
+	struct sockarr_t *sarr = insert_sockarr(sock, __net_dllrecv, NULL);
+	if (!sarr) {
 		sys_err("insert_sockarr failed\n");
 		return -1;
 	}
@@ -289,27 +280,15 @@ int net_init(void)
 		argument.nic, (unsigned int)ETH_INNO);
 
 	/* Start message processing thread */
-	ret = create_pthread(net_recv, NULL);
-	if (ret < 0) {
-		sys_err("create message processing thread failed\n");
-		return -1;
-	}
+	create_pthread(net_recv, NULL);
 	sys_debug("Message processing thread started\n");
 
 	/* Start TCP listener thread */
-	ret = create_pthread(net_netlisten, NULL);
-	if (ret < 0) {
-		sys_err("create TCP listener thread failed\n");
-		return -1;
-	}
+	create_pthread(net_netlisten, NULL);
 	sys_debug("TCP listener thread started\n");
 
 	/* Start broadcast probe thread */
-	ret = create_pthread(net_dllbrd, NULL);
-	if (ret < 0) {
-		sys_err("create broadcast probe thread failed\n");
-		return -1;
-	}
+	create_pthread(net_dllbrd, NULL);
 	sys_debug("AC broadcast probe thread started (interval=%ds)\n",
 		argument.brditv);
 

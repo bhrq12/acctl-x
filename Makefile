@@ -110,10 +110,7 @@ define Package/acctl/install
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/view/acctl/user_badge.htm \
 		$(1)/usr/lib/lua/luci/view/acctl/user_badge.htm
 
-	# Create postinst script directly in Makefile to avoid line ending issues
-	$(INSTALL_DIR) $(1)/etc/uci-defaults
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/root/etc/uci-defaults/luci-app-acctl \
-		$(1)/etc/uci-defaults/luci-app-acctl
+	# Do not install uci-defaults script - use postinst instead to avoid line ending issues
 endef
 
 define Package/acctl/postinst

@@ -21,6 +21,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdint.h>
+#include <unistd.h>
 
 #include "log.h"
 #include "thread.h"
@@ -281,7 +282,6 @@ void res_ip_reload(void)
 
 	/* Validate: end must be in same subnet */
 	uint32_t end_netaddr = end_n & mask_n;
-	uint32_t end_bcast   = end_n | (~mask_n);
 	if (end_netaddr != netaddr) {
 		sys_warn("IP range crosses subnet boundary\n");
 		return;
@@ -297,8 +297,6 @@ void res_ip_reload(void)
 		sys_warn("No usable IPs in pool (only network/broadcast)\n");
 		return;
 	}
-
-	int num = (int)(last_usable - first_usable + 1);
 
 	res_ip_clear();
 

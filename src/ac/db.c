@@ -36,6 +36,21 @@
 /* Forward declarations */
 static void *db_autosave_thread(void *arg);
 
+/* XOR encryption/decryption helpers (must be defined before json_load_file uses them) */
+static void xor_encrypt(const char *input, size_t len, const char *key, char *output)
+{
+    size_t key_len = strlen(key);
+    for (size_t i = 0; i < len; i++) {
+        output[i] = input[i] ^ key[i % key_len];
+    }
+    output[len] = '\0';
+}
+
+static void xor_decrypt(const char *input, size_t len, const char *key, char *output)
+{
+    xor_encrypt(input, len, key, output);
+}
+
 /* Global database handle */
 db_t *db = NULL;
 struct tbl_col_t tables;
@@ -135,27 +150,7 @@ static json_object *json_load_file(const char *path)
     return obj;
 }
 
-/* Forward declaration for XOR decryption (used by json_load_file) */
-static void xor_decrypt(const char *input, size_t len, const char *key, char *output);
-
 /* Save JSON file: write to temp first, then atomic rename */
-/* Simple XOR encryption for database (placeholder for AES) */
-static void xor_encrypt(const char *input, size_t len, const char *key, char *output)
-{
-    size_t key_len = strlen(key);
-    for (size_t i = 0; i < len; i++) {
-        output[i] = input[i] ^ key[i % key_len];
-    }
-    output[len] = '\0';
-}
-
-static void xor_decrypt(const char *input, size_t len, const char *key, char *output)
-{
-    /* XOR is symmetric */
-    xor_encrypt(input, len, key, output);
-}
-
-static int json_save_file(const char *path, json_object *obj)
 {
     /* Write to temp file first, then atomic rename */
     char tmp_path[256];

@@ -48,8 +48,8 @@ void  resource_init(void);
 void *res_check(void *arg);
 
 /* IP allocation */
-struct _ip_t *res_ip_alloc(struct sockaddr_in *addr, char *mac);
-int   res_ip_conflict(struct sockaddr_in *addr, char *mac);
+struct _ip_t *res_ip_alloc(struct sockaddr_in *addr, uint8_t *mac);
+int   res_ip_conflict(struct sockaddr_in *addr, uint8_t *mac);
 int   res_ip_add(struct sockaddr_in *addr);
 void  res_ip_clear(void);
 

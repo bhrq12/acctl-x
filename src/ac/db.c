@@ -151,6 +151,7 @@ static json_object *json_load_file(const char *path)
 }
 
 /* Save JSON file: write to temp first, then atomic rename */
+static int json_save_file(const char *path, json_object *obj)
 {
     /* Write to temp file first, then atomic rename */
     char tmp_path[256];

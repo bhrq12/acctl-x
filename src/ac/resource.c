@@ -59,7 +59,7 @@ static void json_attrs_init(void)
  * IP allocation
  * ======================================================================== */
 
-struct _ip_t *res_ip_alloc(struct sockaddr_in *addr, char *mac)
+struct _ip_t *res_ip_alloc(struct sockaddr_in *addr, uint8_t *mac)
 {
 	if (!ippool)
 		return NULL;
@@ -108,7 +108,7 @@ struct _ip_t *res_ip_alloc(struct sockaddr_in *addr, char *mac)
 	return NULL;
 }
 
-int res_ip_conflict(struct sockaddr_in *addr, char *mac)
+int res_ip_conflict(struct sockaddr_in *addr, uint8_t *mac)
 {
 	if (!ippool || !addr || addr->sin_addr.s_addr == 0)
 		return 0;

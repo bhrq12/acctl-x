@@ -9,7 +9,7 @@ Displays controller basic info from UCI config.
     <div><strong>Broadcast:</strong> <%=self:cfgvalue("brditv") or "30"%>s</div>
 </div>
 <script type="text/javascript">
-    XHR.get('<%=controller%>/admin/network/acctl/api/status', null, function(x, d) {
+    XHR.get('/cgi-bin/luci/admin/network/acctl/api/status', null, function(x, d) {
         var el = document.getElementById('ac-uuid');
         if (el && d) el.textContent = d.uuid || 'N/A';
     });

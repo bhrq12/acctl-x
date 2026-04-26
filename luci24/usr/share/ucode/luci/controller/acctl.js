@@ -37,6 +37,7 @@ return class ACctlController extends LuCI.controller {
     }
 
     index() {
+        // Network menu entry (existing)
         super.entry({
             title: _('AC Controller'),
             path: '/admin/network/acctl',
@@ -48,6 +49,16 @@ return class ACctlController extends LuCI.controller {
             super.cart('admin/network/acctl/alarms'),
             super.cart('admin/network/acctl/firmware'),
             super.cart('admin/network/acctl/system')
+        ));
+
+        // Services menu entry (new)
+        super.entry({
+            title: _('AC Controller'),
+            path: '/admin/services/acctl',
+            icon: 'signal',
+        }, super.chain(
+            super.cart('admin/services/acctl/status'),
+            super.cart('admin/services/acctl/config')
         ));
     }
 
@@ -297,6 +308,55 @@ return class ACctlController extends LuCI.controller {
         } catch (e) {
             result.code = 500;
             result.message = 'Failed to restart service';
+        }
+        http.write_json(result);
+    }
+
+    // API: Service Action (start/stop/restart)
+    apiAction() {
+        const action = http.formvalue('action');
+        const result = { code: 0, message: '' };
+
+        try {
+            if (action === 'start') {
+                exec('/etc/init.d/acctl start > /dev/null 2>&1');
+                result.message = 'AC Controller started';
+            } else if (action === 'stop') {
+                exec('/etc/init.d/acctl stop > /dev/null 2>&1');
+                result.message = 'AC Controller stopped';
+            } else if (action === 'restart') {
+                exec('/etc/init.d/acctl restart > /dev/null 2>&1');
+                result.message = 'AC Controller restarted';
+            } else {
+                result.code = 400;
+                result.message = 'Invalid action';
+            }
+        } catch (e) {
+            result.code = 500;
+            result.message = 'Failed to execute action';
+        }
+        http.write_json(result);
+    }
+
+    // API: Switch Mode (ac/ap)
+    apiSwitchMode() {
+        const mode = http.formvalue('mode');
+        const result = { code: 0, message: '' };
+
+        try {
+            if (mode === 'ac' || mode === 'ap') {
+                const uci = curent();
+                uci.set('acctl', 'acctl', 'mode', mode);
+                uci.commit('acctl');
+                exec('/etc/init.d/acctl restart > /dev/null 2>&1');
+                result.message = 'Mode switched to ' + (mode === 'ac' ? 'AC' : 'AP') + ' mode';
+            } else {
+                result.code = 400;
+                result.message = 'Invalid mode';
+            }
+        } catch (e) {
+            result.code = 500;
+            result.message = 'Failed to switch mode';
         }
         http.write_json(result);
     }

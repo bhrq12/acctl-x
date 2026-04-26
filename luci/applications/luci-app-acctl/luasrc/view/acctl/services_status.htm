@@ -1,0 +1,123 @@
+<%#
+AC Controller - Services Status Page
+%>
+
+<%+header%>
+
+<script type="text/javascript">//<![CDATA[
+function acctlAction(action) {
+    var msg = '';
+    if (action == 'start') msg = 'Starting AC Controller...';
+    if (action == 'stop') msg = 'Stopping AC Controller...';
+    if (action == 'restart') msg = 'Restarting AC Controller...';
+    
+    if (msg) {
+        document.getElementById('status_msg').innerHTML = '<div class="alert alert-info">' + msg + '</div>';
+        
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '<%=url('admin/services/acctl/api/action')%>', true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                var resp = JSON.parse(xhr.responseText);
+                document.getElementById('status_msg').innerHTML = '<div class="alert alert-' + (resp.code == 0 ? 'success' : 'danger') + '">' + resp.message + '</div>';
+                setTimeout(function() {
+                    location.reload();
+                }, 1000);
+            }
+        };
+        xhr.send('action=' + action);
+    }
+}
+
+function switchMode(mode) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '<%=url('admin/services/acctl/api/switch_mode')%>', true);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4 && xhr.status == 200) {
+            var resp = JSON.parse(xhr.responseText);
+            document.getElementById('mode_msg').innerHTML = '<div class="alert alert-' + (resp.code == 0 ? 'success' : 'danger') + '">' + resp.message + '</div>';
+            setTimeout(function() {
+                location.reload();
+            }, 1000);
+        }
+    };
+    xhr.send('mode=' + mode);
+}
+//]]></script>
+
+<h2><%:AC Controller Status%></h2>
+
+<div id="status_msg"></div>
+
+<fieldset class="cbi-section">
+    <legend><%:Service Status%></legend>
+    <table class="table table-striped table-condensed">
+        <tr>
+            <th width="30%"><%:Status%></th>
+            <td>
+                <% if luci.sys.call("pgrep -x acser > /dev/null 2>&1") == 0 then %>
+                    <span class="label label-success"><%:Running%></span>
+                <% else %>
+                    <span class="label label-danger"><%:Stopped%></span>
+                <% end %>
+            </td>
+        </tr>
+        <tr>
+            <th><%:Mode%></th>
+            <td>
+                <% local uci = require("luci.model.uci").cursor();
+                   local mode = uci:get("acctl", "acctl", "mode") or "ac" %>
+                <span class="label label-info"><% if mode == "ac" then "AC Mode" else "AP Mode" end %></span>
+            </td>
+        </tr>
+        <tr>
+            <th><%:Version%></th>
+            <td>
+                <% local ver = luci.sys.exec("acser -v 2>/dev/null || echo '2.0'"):gsub("\n", "") %>
+                <%=ver%>
+            </td>
+        </tr>
+    </table>
+</fieldset>
+
+<fieldset class="cbi-section">
+    <legend><%:Service Control%></legend>
+    <div class="cbi-section-node">
+        <% if luci.sys.call("pgrep -x acser > /dev/null 2>&1") == 0 then %>
+            <input type="button" class="btn btn-danger" value="<%:Stop%>" onclick="acctlAction('stop')" />
+            <input type="button" class="btn btn-warning" value="<%:Restart%>" onclick="acctlAction('restart')" />
+        <% else %>
+            <input type="button" class="btn btn-success" value="<%:Start%>" onclick="acctlAction('start')" />
+        <% end %>
+    </div>
+</fieldset>
+
+<fieldset class="cbi-section">
+    <legend><%:Mode Switch%></legend>
+    <div id="mode_msg"></div>
+    <div class="cbi-section-node">
+        <p><%:Switch between AC and AP modes. Changing mode will restart the service.%></p>
+        <% local uci = require("luci.model.uci").cursor();
+           local mode = uci:get("acctl", "acctl", "mode") or "ac" %>
+        <% if mode == "ac" then %>
+            <input type="button" class="btn btn-primary" value="<%:Switch to AP Mode%>" onclick="switchMode('ap')" />
+        <% else %>
+            <input type="button" class="btn btn-primary" value="<%:Switch to AC Mode%>" onclick="switchMode('ac')" />
+        <% end %>
+    </div>
+</fieldset>
+
+<fieldset class="cbi-section">
+    <legend><%:Quick Links%></legend>
+    <div class="cbi-section-node">
+        <ul class="list-unstyled">
+            <li><a href="<%=url('admin/network/acctl')%>"><%:AC Controller Configuration%></a></li>
+            <li><a href="<%=url('admin/network/acctl/ap_list')%>"><%:AP List%></a></li>
+            <li><a href="<%=url('admin/network/acctl/alarms')%>"><%:Alarms%></a></li>
+        </ul>
+    </div>
+</fieldset>
+
+<%+footer%>

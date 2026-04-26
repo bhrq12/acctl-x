@@ -296,7 +296,7 @@ static void __ap_reg(struct ap_hash_t *aphash,
 	}
 
 	if (!alloc_addr) {
-		ip = res_ip_alloc(NULL, (char *)msg->header.mac);  /* NULL = auto-allocate */
+		ip = res_ip_alloc(NULL, (uint8_t *)msg->header.mac);  /* NULL = auto-allocate */
 		if (!ip) {
 			sys_err("IP pool exhausted, cannot register %s\n",
 				mac_str);

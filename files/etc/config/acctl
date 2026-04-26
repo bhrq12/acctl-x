@@ -15,6 +15,7 @@ config acctl 'acctl'
 	option interface   'br-lan'
 	option port        '7960'
 	option password    ''
+	option mode        'ac'
 
 	# Broadcast probe interval in seconds (default: 30)
 	option brditv      '30'

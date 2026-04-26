@@ -1,382 +1,222 @@
-# acctl
+# OpenWrt AC Controller (acctl) v2.0
 
-[English](#english) | [中文](#中文)
+## 项目简介
 
----
+OpenWrt AC Controller (acctl) 是一个专为 OpenWrt 路由器设计的无线接入点控制器，提供以下功能：
 
-# English
+- **集中管理**：统一管理多个无线接入点
+- **自动配置**：自动为 AP 分配 IP 地址
+- **实时监控**：监控 AP 状态和客户端连接
+- **固件管理**：集中管理 AP 固件升级
+- **告警系统**：实时告警和事件记录
+- **安全认证**：基于 CHAP 的安全认证机制
+- **多版本兼容**：支持 OpenWrt 18.06-24.10 版本
 
-AC Controller for OpenWrt — manage enterprise WiFi Access Points centrally.
+## 系统要求
 
-## Features
+- OpenWrt 18.06 或更高版本
+- 至少 64MB 内存
+- 至少 10MB 存储空间
+- 网络接口（推荐使用 br-lan）
 
-- **Centralized AC Server** (acser): manages APs via TCP control channel + Ethernet broadcast discovery
-- **Lightweight AP Client** (apctl): runs on managed APs, auto-registers to AC, reports status periodically
-- **CHAP Authentication**: shared secret stored in UCI config (`/etc/config/acctl`), no hardcoded passwords
-- **JSON File Database**: zero-dependency JSON database (`/etc/acctl/ac.json`) using libjson-c; no SQLite
-- **Atomic Database Persistence**: write-to-temp + rename pattern; 60s auto-save thread prevents data loss on crash
-- **File-Locked CLI**: acctl-cli uses fcntl advisory locking to prevent race conditions with acser daemon
-- **AP Grouping & Batch Config**: assign APs to groups, push SSID/channel/power settings in bulk
-- **Alarm/Event System**: threshold-based alarms (AP offline, weak signal, CPU/memory overload, etc.)
-- **Firmware OTA**: push firmware upgrades to managed APs over the control channel
-- **Multi-SSID Management**: per-AP SSID templates with 2.4GHz/5GHz band separation
-- **LuCI Web UI**: full management panel for AC config, AP list, groups, alarms, and firmware
+## 安装方法
 
-## Architecture
+### 方法一：使用 opkg 安装
 
-```
-+----------------+     TCP (port 7960)     +----------------+
-|  AC Server    | <--------------------> |   AP Client    |
-|   (acser)     |     ETH Broadcast       |   (apctl)     |
-+----------------+  (discovery probe)      +----------------+
-       |                                         |
-   /etc/acctl/                              broadcasts
-   ac.json (JSON DB)                       registration
-       |
-  LuCI Web UI
-```
+1. 下载适合您设备架构的 acctl 软件包
+2. 使用 opkg 命令安装：
+   ```bash
+   opkg install acctl_2.0-1_*.ipk
+   ```
 
-- **acser**: AC Controller daemon — runs on OpenWrt router acting as the WiFi controller
-- **apctl**: AP Client daemon — runs on each managed Access Point hardware
+### 方法二：从源代码编译
 
-## Build
+1. 克隆源代码仓库：
+   ```bash
+   git clone https://github.com/yourusername/acctl.git
+   ```
 
-Requires OpenWrt SDK or full buildroot with Lean/lede feeds.
+2. 将 acctl 目录复制到 OpenWrt 构建系统的 package 目录：
+   ```bash
+   cp -r acctl /path/to/openwrt/package/
+   ```
 
-```bash
-# Copy package into OpenWrt build tree
-cd /path/to/openwrt
-cp -r acctl package/
+3. 配置构建选项：
+   ```bash
+   make menuconfig
+   ```
+   在 "Network" 菜单中选择 "acctl"
 
-# Install dependencies from feeds
-./scripts/feeds install libuci-lua
+4. 编译软件包：
+   ```bash
+   make package/acctl/compile V=99
+   ```
 
-# Compile
-make package/acctl/compile V=99
-```
+5. 安装生成的软件包：
+   ```bash
+   opkg install bin/packages/*/base/acctl_2.0-1_*.ipk
+   ```
 
-## Install
+## 自动配置
 
-The build produces `acctl_*.ipk`. Install on the AC router:
+安装完成后，acctl 会自动进行以下配置：
 
-```bash
-opkg install acctl_*.ipk
-```
+1. **默认密码**：设置为 `acctl@2024`
+2. **IP 地址池**：默认分配 192.168.1.200-192.168.1.254
+3. **服务启动**：自动启用并启动服务
+4. **数据库初始化**：创建默认的 JSON 数据库
 
-**Installation layout:**
-- `/usr/bin/acser` — AC server binary
-- `/usr/bin/apctl` — AP client binary
-- `/usr/bin/acctl-cli` — CLI management tool
-- `/etc/init.d/acctl` — AC server init script (procd)
-- `/etc/init.d/apctl` — AP client init script (procd)
-- `/etc/config/acctl` — UCI configuration
-- `/etc/acctl/ac.json` — JSON database
+## Web 界面访问
 
-## Configuration
+1. 打开浏览器，访问 OpenWrt Web 管理界面
+2. 导航到 "网络" → "AC Controller"
+3. 使用默认密码 `acctl@2024` 登录
 
-Configure via UCI. All settings are in `/etc/config/acctl`:
+## 命令行工具
 
-```
-# === AC Server ===
-config acctl 'acctl'
-    option enabled     '1'
-    option interface   'br-lan'
-    option port        '7960'
-
-    # IMPORTANT: Set a strong password before starting!
-    #   uci set acctl.@acctl[0].password='your_secure_password'
-    #   uci commit acctl
-    option password    ''
-
-    option brditv      '30'       # broadcast probe interval (seconds)
-    option reschkitv  '300'      # IP pool reload interval (seconds)
-    option msgitv     '3'        # message processing interval (seconds)
-    option daemon      '1'        # run as daemon
-    option debug       '0'       # debug mode
-
-# === AP Default Profiles ===
-config profile 'profile_office'
-    option name 'Office Network'
-    list ssid_2g 'Office-2G'
-    option enc_2g 'psk2'
-    option key_2g 'changeme123'
-    list ssid_5g 'Office-5G'
-    option enc_5g 'psk2'
-    option key_5g 'changeme123'
-
-# === Alarm Rules ===
-config alarm 'ap_offline'
-    option name      'AP Offline'
-    option level     '2'
-    option threshold '1'
-    option window    '60'
-    option cooldown  '300'
-    option enabled   '1'
-```
-
-Access via LuCI: **System → AC Controller**
-
-## Project Structure
-
-```
-acctl/
-|-- Makefile                 # OpenWrt package Makefile (-DSERVER flag)
-|-- src/                     # C source (25 .c files, 21 .h files)
-|   |-- include/             # Public headers: aphash, chap, db, dllayer, link,
-|   |                       #   log, md5, msg, net, netlayer, sec, sha256, thread
-|   |-- ac/                  # AC server (acser) source
-|   |   ac.c, net.c, process.c, resource.c, message.c, db.c
-|   |   aphash.c (shared AP hash table), cli.c (management CLI)
-|   |-- ap/                  # AP client (apctl) source
-|   |   main.c, net.c, process.c, message.c, apstatus.c
-|   |-- lib/                 # Shared library: epoll, DLL, security, CHAP, JSON
-|       arg.c, chap.c, cmdarg.c, dllayer.c, link.c, md5.c, mjson.c
-|       netlayer.c, sec.c, sha256.c, thread.c
-|-- luci/                    # LuCI web UI
-|   |-- applications/luci-app-acctl/
-|       controller/          # Lua controller (router registration)
-|       model/cbi/acctl/     # CBI models (7 Lua config pages)
-|       view/acctl/          # HTML view templates
-|       root/etc/uci-defaults/
-|-- files/                   # Files installed by ipk
-    |-- etc/config/acctl     # UCI configuration template
-    |-- etc/init.d/acctl     # AC server init (procd)
-    |-- etc/init.d/apctl     # AP client init (procd)
-```
-
-## Dependencies
-
-- `libuci-lua` — UCI configuration access
-- `libjson-c` — JSON serialization (database)
-- `libpthread` — POSIX threads
-- `librt` — POSIX real-time extensions (shm_open, clock_gettime)
-- `libubus` — OpenWrt system bus (optional)
-- `libiwinfo` — wireless device info (optional)
-
-## Supported Platforms
-
-Tested on OpenWrt build targets:
-
-| Target | Architecture | Devices |
-|--------|-------------|---------|
-| `ipq40xx` | ARM Cortex-A7 | QCN5502/CR660x/X1800/AX3600 |
-| `x86_64` | x86_64 | x86 router boards |
-| `bcm2711` | ARM Cortex-A72 | Raspberry Pi 4B |
-
-## Security
-
-- CHAP authentication: shared secret from UCI config, never stored in plaintext
-- Dangerous-pattern-first command validation: shell metacharacters are rejected BEFORE whitelist matching, preventing injection through whitelisted prefixes
-- Whitelisted commands with path exceptions (e.g. "cat /proc/uptime") use precise prefix matching with contains_path flag
-- Command execution via sh -c with strict validation (recommended: migrate to execvp with argument array)
-- Double validation removed from sec_exec_command (was redundant with caller)
-- Per-AP rate limiting: 60 registrations/min, 120 commands/min
-- Replay window protection
-- HMAC-SHA256 message integrity
-- AC trust list for AP authentication
-
-### v2.0 Security Audit (2026-04-20)
-
-Full source code audit completed — 35 issues found and fixed:
-
-- **CRITICAL**: Command injection bypass via whitelist prefix (e.g. `wifi;rm -rf /`) — fixed: dangerous patterns checked first
-- **HIGH**: Shell injection in LuCI controller (api_aps_action, api_cmd) — fixed: whitelist + regex sanitization
-- **MEDIUM**: Data race between CLI tool and daemon (no file locking) — fixed: fcntl advisory locking
-- **MEDIUM**: Global lock contention during message processing — fixed: snapshot + process outside lock
-- **MEDIUM**: 5GHz band never detected (frequency range overlap) — fixed: check 5GHz before 2.4GHz
-- **MEDIUM**: MAC address DB lookup always fails (raw bytes vs formatted string) — fixed
-
-See `acctl-audit-report-20260420.md` for full details.
-
-## License
-
-MIT
-
----
-
-# 中文
-
-acctl — OpenWrt 企业级 AC 控制器，集中管理多个 AP（无线接入点）。
-
-## 功能特性
-
-- **集中式 AC 服务器**（acser）：通过 TCP 控制通道 + 以太网广播发现统一管理 AP
-- **轻量级 AP 客户端**（apctl）：部署在各 AP 上，自动向 AC 注册并定时上报状态
-- **CHAP 认证**：共享密钥存储在 UCI 配置文件（`/etc/config/acctl`）中，无硬编码密码
-- **JSON 文件数据库**：基于 libjson-c 的零依赖 JSON 数据库（`/etc/acctl/ac.json`），无需 SQLite
-- **原子数据库持久化**：写临时文件 + rename 模式；60 秒自动保存线程防止崩溃丢数据
-- **文件锁 CLI**：acctl-cli 使用 fcntl 建议锁，避免与 acser 守护进程的竞争条件
-- **AP 分组与批量配置**：将 AP 归入分组，批量下发 SSID / 信道 / 功率等配置
-- **告警/事件系统**：基于阈值的告警（AP 离线、信号弱、CPU/内存过载等）
-- **固件 OTA 推送**：通过控制通道向 AP 推送固件升级包
-- **多 SSID 管理**：支持每个 AP 配置 2.4GHz / 5GHz 双频 SSID 模板
-- **LuCI Web 管理界面**：完整的 Web 面板，支持 AC 配置、AP 列表、分组、告警、固件管理
-
-## 架构
-
-```
-+----------------+     TCP (端口 7960)     +----------------+
-|  AC 服务器     | <--------------------> |  AP 客户端     |
-|   (acser)     |      以太网广播           |   (apctl)     |
-+----------------+    (发现探测)             +----------------+
-       |                                          |
-   /etc/acctl/                               广播注册
-   ac.json (JSON 数据库)                      请求
-       |
-  LuCI Web 管理界面
-```
-
-- **acser**：AC 控制器守护进程，运行在 OpenWrt 路由器上，作为 WiFi 控制器
-- **apctl**：AP 客户端守护进程，运行在每个受管理的 AP 硬件上
-
-## 编译
-
-需要 OpenWrt SDK 或完整 buildroot（推荐 Lean/lede 源码）。
+acctl 提供了命令行工具 `acctl-cli`，用于管理和监控 AP：
 
 ```bash
-# 将 acctl 复制到 OpenWrt 编译树
-cd /path/to/openwrt
-cp -r acctl package/
+# 列出所有 AP
+tcctl-cli aps
 
-# 安装 feeds 依赖
-./scripts/feeds install libuci-lua
+# 列出所有告警
+acctl-cli alarms
 
-# 编译
-make package/acctl/compile V=99
+# 列出所有固件
+acctl-cli firmware
+
+# 查看数据库统计信息
+acctl-cli stats
+
+# 确认告警
+acctl-cli ack <alarm_id>
+
+# 确认所有告警
+acctl-cli ack-all
+
+# 写入审计日志
+acctl-cli audit <user> <action> <rtype> <rid> <old> <new> <ip>
 ```
 
-## 安装
+## 配置文件
 
-编译产物为 `acctl_*.ipk`，安装到 AC 路由器：
+### 主要配置文件
+
+- **/etc/config/acctl**：UCI 配置文件，包含基本设置
+- **/etc/acctl/ac.json**：JSON 格式的数据库文件
+
+### UCI 配置选项
 
 ```bash
-opkg install acctl_*.ipk
+# 编辑配置文件
+uci edit acctl
+
+# 查看配置
+uci show acctl
+
+# 提交更改
+uci commit acctl
 ```
 
-**安装目录结构：**
-- `/usr/bin/acser` — AC 服务器二进制文件
-- `/usr/bin/apctl` — AP 客户端二进制文件
-- `/usr/bin/acctl-cli` — 命令行管理工具
-- `/etc/init.d/acctl` — AC 服务器启动脚本（procd）
-- `/etc/init.d/apctl` — AP 客户端启动脚本（procd）
-- `/etc/config/acctl` — UCI 配置文件
-- `/etc/acctl/ac.json` — JSON 数据库文件
+主要配置选项：
 
-## 配置
+| 选项 | 说明 | 默认值 |
+|------|------|--------|
+| enabled | 是否启用服务 | 1 (启用) |
+| interface | 网络接口 | br-lan |
+| port | 服务端口 | 7960 |
+| password | 管理密码 | acctl@2024 |
+| brditv | 广播间隔 (秒) | 30 |
+| reschkitv | IP 池刷新间隔 (秒) | 300 |
+| msgitv | 消息处理间隔 (秒) | 3 |
+| daemon | 守护进程模式 | 1 (启用) |
+| debug | 调试模式 | 0 (禁用) |
 
-所有配置通过 UCI 完成，编辑 `/etc/config/acctl`：
+## 服务管理
 
-```
-# === AC 服务器 ===
-config acctl 'acctl'
-    option enabled     '1'
-    option interface   'br-lan'
-    option port        '7960'
+```bash
+# 启动服务
+/etc/init.d/acctl start
 
-    # 重要：请在启动前设置密码！
-    #   uci set acctl.@acctl[0].password='your_secure_password'
-    #   uci commit acctl
-    option password    ''
+# 停止服务
+/etc/init.d/acctl stop
 
-    option brditv      '30'       # 广播探测间隔（秒）
-    option reschkitv  '300'      # IP 池重载间隔（秒）
-    option msgitv     '3'        # 消息处理间隔（秒）
-    option daemon      '1'        # 后台运行
-    option debug       '0'        # 调试模式
+# 重启服务
+/etc/init.d/acctl restart
 
-# === AP 默认模板 ===
-config profile 'profile_office'
-    option name '办公网络'
-    list ssid_2g 'Office-2G'
-    option enc_2g 'psk2'
-    option key_2g 'changeme123'
-    list ssid_5g 'Office-5G'
-    option enc_5g 'psk2'
-    option key_5g 'changeme123'
+# 启用服务（开机自启）
+/etc/init.d/acctl enable
 
-# === 告警规则 ===
-config alarm 'ap_offline'
-    option name      'AP 离线'
-    option level     '2'
-    option threshold '1'
-    option window    '60'
-    option cooldown  '300'
-    option enabled   '1'
+# 禁用服务
+/etc/init.d/acctl disable
+
+# 查看服务状态
+/etc/init.d/acctl status
 ```
 
-通过 LuCI 访问：**系统 → AC 控制器**
+## 故障排查
 
-## 项目结构
+### 常见问题
 
+1. **服务无法启动**
+   - 检查配置文件是否正确
+   - 检查端口是否被占用
+   - 查看系统日志：`logread | grep acctl`
+
+2. **Web 界面无法访问**
+   - 检查服务是否运行：`/etc/init.d/acctl status`
+   - 检查防火墙设置
+   - 清除浏览器缓存
+
+3. **AP 无法注册**
+   - 检查 AP 是否在同一网络
+   - 检查密码是否正确
+   - 查看 AC 控制器日志
+
+### 日志查看
+
+```bash
+# 查看系统日志中的 acctl 相关信息
+logread | grep acctl
+
+# 查看详细日志（启用调试模式后）
+logread -f | grep acctl
 ```
-acctl/
-|-- Makefile                 # OpenWrt 包 Makefile（-DSERVER 编译标志）
-|-- src/                     # C 源码（25 个 .c 文件，21 个 .h 文件）
-|   |-- include/             # 公共头文件：aphash, chap, db, dllayer, link,
-|   |                       #   log, md5, msg, net, netlayer, sec, sha256, thread
-|   |-- ac/                  # AC 服务器（acser）源码
-|   |   ac.c, net.c, process.c, resource.c, message.c, db.c
-|   |   aphash.c（共享 AP 哈希表）, cli.c（管理 CLI）
-|   |-- ap/                  # AP 客户端（apctl）源码
-|   |   main.c, net.c, process.c, message.c, apstatus.c
-|   |-- lib/                 # 共享库：epoll, DLL, 安全, CHAP, JSON 等
-|       arg.c, chap.c, cmdarg.c, dllayer.c, link.c, md5.c, mjson.c
-|       netlayer.c, sec.c, sha256.c, thread.c
-|-- luci/                    # LuCI Web 管理界面
-|   |-- applications/luci-app-acctl/
-|       controller/          # Lua 控制器（路由注册）
-|       model/cbi/acctl/     # CBI 模型（7 个 Lua 配置页面）
-|       view/acctl/          # HTML 视图模板
-|       root/etc/uci-defaults/
-|-- files/                   # ipk 安装文件
-    |-- etc/config/acctl     # UCI 配置模板
-    |-- etc/init.d/acctl    # AC 服务器启动脚本（procd）
-    |-- etc/init.d/apctl    # AP 客户端启动脚本（procd）
-```
 
-## 依赖
+## 安全建议
 
-- `libuci-lua` — UCI 配置访问
-- `libjson-c` — JSON 序列化（数据库）
-- `libpthread` — POSIX 线程
-- `librt` — POSIX 实时扩展（shm_open, clock_gettime）
-- `libubus` — OpenWrt 系统总线（可选）
-- `libiwinfo` — 无线设备信息（可选）
+1. **更改默认密码**：安装后请立即更改默认密码
+   ```bash
+   uci set acctl.@acctl[0].password='your_secure_password'
+   uci commit acctl
+   /etc/init.d/acctl restart
+   ```
 
-## 支持的平台
+2. **限制访问**：通过防火墙限制对 AC 控制器的访问
 
-已在以下 OpenWrt 编译目标上测试：
+3. **定期更新**：定期更新 acctl 到最新版本
 
-| 目标架构 | CPU 架构 | 代表设备 |
-|---------|---------|---------|
-| `ipq40xx` | ARM Cortex-A7 | QCN5502 / CR660x / X1800 / AX3600 |
-| `x86_64` | x86_64 | x86 路由器 |
-| `bcm2711` | ARM Cortex-A72 | Raspberry Pi 4B |
+## 版本兼容性
 
-## 安全特性
-
-- CHAP 认证：密钥仅存于 UCI 配置，纯文本不落地
-- 危险模式优先的命令验证：先拒绝 Shell 元字符，再匹配白名单，防止通过白名单前缀注入
-- 白名单含路径的命令（如 "cat /proc/uptime"）使用 contains_path 标记精确豁免
-- 命令执行通过 sh -c 严格验证后执行（建议后续迁移到 execvp 参数数组模式）
-- 单 AP 限流：每分钟最多 60 次注册、120 条命令
-- 重放攻击窗口保护
-- HMAC-SHA256 消息完整性校验
-- AC 信任列表，AP 接入认证
-
-### v2.0 安全审计（2026-04-20）
-
-已完成全量源码审计，发现并修复 35 项问题：
-
-- **严重**：通过白名单前缀绕过命令注入（如 `wifi;rm -rf /`）— 已修复：危险模式优先检查
-- **高危**：LuCI 控制器 Shell 注入（api_aps_action、api_cmd）— 已修复：白名单 + 正则过滤
-- **中危**：CLI 工具与守护进程数据竞争（无文件锁）— 已修复：fcntl 建议锁
-- **中危**：消息处理期间全局锁竞争 — 已修复：快照 + 锁外处理
-- **中危**：5GHz 频段永远检测不到（频率范围重叠）— 已修复：先检查 5GHz
-- **中危**：MAC 地址数据库查询永远失败（原始字节 vs 格式化字符串）— 已修复
-
-详见 `acctl-audit-report-20260420.md`。
+| OpenWrt 版本 | 支持状态 | LuCI 类型 |
+|-------------|----------|-----------|
+| 18.06 | 支持 | Lua |
+| 19.07 | 支持 | Lua |
+| 21.02 | 支持 | Lua |
+| 22.03 | 支持 | ucode |
+| 23.05 | 支持 | ucode |
+| 24.10 | 支持 | ucode |
 
 ## 许可证
 
-MIT
+本项目采用 GPL v3 许可证。
+
+## 贡献
+
+欢迎提交 issue 和 pull request 来改进这个项目。
+
+## 联系方式
+
+- 项目主页：https://github.com/yourusername/acctl
+- 问题反馈：https://github.com/yourusername/acctl/issues

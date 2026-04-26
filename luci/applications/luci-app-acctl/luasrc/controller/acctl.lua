@@ -44,8 +44,9 @@ end
 -- ========================================================================
 
 function index()
+    -- Network menu entry (existing)
     entry({"admin", "network", "acctl"},
-        alias("admin", "network", "acctl", "general"),
+        alias({"admin", "network", "acctl", "general"}),
         _("AC Controller"), 60).dependent = false
 
     entry({"admin", "network", "acctl", "general"},
@@ -76,6 +77,19 @@ function index()
         cbi("acctl/system"),
         _("System"), 60)
 
+    -- Services menu entry (new)
+    entry({"admin", "services", "acctl"},
+        alias({"admin", "services", "acctl", "status"}),
+        _("AC Controller"), 60).dependent = false
+
+    entry({"admin", "services", "acctl", "status"},
+        template("acctl/services_status"),
+        _("Status"), 10)
+
+    entry({"admin", "services", "acctl", "config"},
+        cbi("acctl/services_config"),
+        _("Configuration"), 20)
+
     -- REST API endpoints
     entry({"admin", "network", "acctl", "api", "status"},
         call("api_status"))
@@ -103,6 +117,61 @@ function index()
 
     entry({"admin", "network", "acctl", "api", "restart"},
         call("api_restart"))
+
+    -- Services API endpoints
+    entry({"admin", "services", "acctl", "api", "action"},
+        call("api_action"))
+
+    entry({"admin", "services", "acctl", "api", "switch_mode"},
+        call("api_switch_mode"))
+end
+
+-- ========================================================================
+-- API: Service Action (start/stop/restart)
+-- ========================================================================
+
+function api_action()
+    local action = http.formvalue("action")
+    local result = { code = 0, message = "" }
+
+    if action == "start" then
+        sys.exec("/etc/init.d/acctl start > /dev/null 2>&1")
+        result.message = "AC Controller started"
+    elseif action == "stop" then
+        sys.exec("/etc/init.d/acctl stop > /dev/null 2>&1")
+        result.message = "AC Controller stopped"
+    elseif action == "restart" then
+        sys.exec("/etc/init.d/acctl restart > /dev/null 2>&1")
+        result.message = "AC Controller restarted"
+    else
+        result.code = 400
+        result.message = "Invalid action"
+    end
+
+    http.prepare_content("application/json")
+    http.write_json(result)
+end
+
+-- ========================================================================
+-- API: Switch Mode (ac/ap)
+-- ========================================================================
+
+function api_switch_mode()
+    local mode = http.formvalue("mode")
+    local result = { code = 0, message = "" }
+
+    if mode == "ac" or mode == "ap" then
+        uci:set("acctl", "acctl", "mode", mode)
+        uci:commit("acctl")
+        sys.exec("/etc/init.d/acctl restart > /dev/null 2>&1")
+        result.message = "Mode switched to " .. (mode == "ac" and "AC" or "AP") .. " mode"
+    else
+        result.code = 400
+        result.message = "Invalid mode"
+    end
+
+    http.prepare_content("application/json")
+    http.write_json(result)
 end
 
 -- ========================================================================

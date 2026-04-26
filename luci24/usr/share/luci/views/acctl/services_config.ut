@@ -1,0 +1,137 @@
+<%#
+AC Controller - Services Configuration Page (OpenWrt 24.x)
+%>
+
+<%+header%>
+
+<h2><%:AC Controller Configuration%></h2>
+
+<% local uci = require("uci").curent() %>
+<% local config = uci.get_all("acctl", "acctl") or {} %>
+
+<form method="post" action="<%=url('admin/services/acctl/config')%>">
+    <fieldset class="cbi-section">
+        <legend><%:Service Settings%></legend>
+        
+        <div class="cbi-section-node">
+            <div class="row">
+                <div class="col-md-3"><label class="control-label"><%:Mode%></label></div>
+                <div class="col-md-9">
+                    <select name="mode" class="form-control">
+                        <option value="ac" <% if (config.mode or "ac") == "ac" then %>selected<% end %>>
+                            <%:AC Mode%>
+                        </option>
+                        <option value="ap" <% if (config.mode or "ac") == "ap" then %>selected<% end %>>
+                            <%:AP Mode%>
+                        </option>
+                    </select>
+                    <span class="help-block"><%:Select AC or AP mode%></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="cbi-section-node">
+            <div class="row">
+                <div class="col-md-3"><label class="control-label"><%:Enabled%></label></div>
+                <div class="col-md-9">
+                    <input type="checkbox" name="enabled" class="form-control" <% if (config.enabled or "1") == "1" then %>checked<% end %> />
+                    <span class="help-block"><%:Enable AC Controller service%></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="cbi-section-node">
+            <div class="row">
+                <div class="col-md-3"><label class="control-label"><%:Interface%></label></div>
+                <div class="col-md-9">
+                    <select name="interface" class="form-control">
+                        <% local net = require("luci.model.network").init() %>
+                        <% for _, iface in ipairs(net:get_networks()) do %>
+                            <option value="<%=iface:name()%>" <% if (config.interface or "br-lan") == iface:name() then %>selected<% end %>>
+                                <%=iface:name()%>
+                            </option>
+                        <% end %>
+                    </select>
+                    <span class="help-block"><%:Network interface to use%></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="cbi-section-node">
+            <div class="row">
+                <div class="col-md-3"><label class="control-label"><%:Port%></label></div>
+                <div class="col-md-9">
+                    <input type="number" name="port" class="form-control" value="<%=config.port or "7960"%>" min="1" max="65535" />
+                    <span class="help-block"><%:Service port%></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="cbi-section-node">
+            <div class="row">
+                <div class="col-md-3"><label class="control-label"><%:Password%></label></div>
+                <div class="col-md-9">
+                    <input type="password" name="password" class="form-control" value="<%=config.password or "acctl@2024"%>" />
+                    <span class="help-block"><%:Administrator password%></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="cbi-section-node">
+            <div class="row">
+                <div class="col-md-3"><label class="control-label"><%:Broadcast Interval%></label></div>
+                <div class="col-md-9">
+                    <input type="number" name="brditv" class="form-control" value="<%=config.brditv or "30"%>" min="1" />
+                    <span class="help-block"><%:Interval in seconds for AC broadcast probes%></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="cbi-section-node">
+            <div class="row">
+                <div class="col-md-3"><label class="control-label"><%:IP Pool Refresh Interval%></label></div>
+                <div class="col-md-9">
+                    <input type="number" name="reschkitv" class="form-control" value="<%=config.reschkitv or "300"%>" min="1" />
+                    <span class="help-block"><%:Interval in seconds for IP pool refresh%></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="cbi-section-node">
+            <div class="row">
+                <div class="col-md-3"><label class="control-label"><%:Message Processing Interval%></label></div>
+                <div class="col-md-9">
+                    <input type="number" name="msgitv" class="form-control" value="<%=config.msgitv or "3"%>" min="1" />
+                    <span class="help-block"><%:Interval in seconds for message processing%></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="cbi-section-node">
+            <div class="row">
+                <div class="col-md-3"><label class="control-label"><%:Daemon Mode%></label></div>
+                <div class="col-md-9">
+                    <input type="checkbox" name="daemon" class="form-control" <% if (config.daemon or "1") == "1" then %>checked<% end %> />
+                    <span class="help-block"><%:Run as daemon%></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="cbi-section-node">
+            <div class="row">
+                <div class="col-md-3"><label class="control-label"><%:Debug Mode%></label></div>
+                <div class="col-md-9">
+                    <input type="checkbox" name="debug" class="form-control" <% if (config.debug or "0") == "1" then %>checked<% end %> />
+                    <span class="help-block"><%:Enable debug logging%></span>
+                </div>
+            </div>
+        </div>
+    </fieldset>
+    
+    <div class="cbi-page-actions">
+        <input type="submit" class="btn btn-primary" value="<%:Save%>" />
+        <input type="reset" class="btn btn-default" value="<%:Reset%>" />
+    </div>
+</form>
+
+<%+footer%>

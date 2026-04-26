@@ -5,10 +5,10 @@
 
 cat > /etc/config/acctl <<'EOF'
 config acctl 'acctl'
-	option enabled     '0'
+	option enabled     '1'
 	option interface   'br-lan'
 	option port        '7960'
-	option password    ''
+	option password    'acctl@2024'
 	option brditv      '30'
 	option reschkitv   '300'
 	option msgitv      '3'
@@ -26,5 +26,28 @@ EOF
 
 # Initialize database directory
 [ -d /etc/acctl ] || mkdir -p /etc/acctl
+
+# Create default database with IP pool
+cat > /etc/acctl/ac.json <<'EOF'
+{
+  "ac": {
+    "uuid": "ac-$(cat /proc/sys/kernel/random/uuid)",
+    "name": "OpenWrt-AC"
+  },
+  "resource": {
+    "ip_start": "192.168.1.200",
+    "ip_end": "192.168.1.254",
+    "ip_mask": "255.255.255.0"
+  },
+  "aps": [],
+  "groups": [],
+  "alarms": [],
+  "firmwares": []
+}
+EOF
+
+# Enable and start the service
+/etc/init.d/acctl enable
+/etc/init.d/acctl start
 
 exit 0

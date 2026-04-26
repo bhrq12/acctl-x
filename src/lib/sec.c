@@ -34,6 +34,9 @@
 #include <time.h>
 #include <regex.h>
 #include <ctype.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 
 #include "sec.h"
 #include "sha256.h"

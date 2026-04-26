@@ -139,11 +139,11 @@ define Package/acctl/postinst
 [ -d $${IPKG_INSTROOT}/etc/acctl ] || mkdir -p $${IPKG_INSTROOT}/etc/acctl
 
 # Create default database if not exists
-if [ ! -f $${IPKG_INSTROOT}/etc/acctl/ac.json ]; then
+if [ ! -f $${IPKG_INSTROOT}/etc/acctl/ac.json ] || [ ! -s $${IPKG_INSTROOT}/etc/acctl/ac.json ]; then
 cat > $${IPKG_INSTROOT}/etc/acctl/ac.json <<'EOF'
 {
   "ac": {
-    "uuid": "ac-$(cat /proc/sys/kernel/random/uuid)",
+    "uuid": "ac-unknown",
     "name": "OpenWrt-AC"
   },
   "resource": {
@@ -157,6 +157,17 @@ cat > $${IPKG_INSTROOT}/etc/acctl/ac.json <<'EOF'
   "firmwares": []
 }
 EOF
+
+# Generate UUID if possible
+if [ -f /proc/sys/kernel/random/uuid ]; then
+  UUID=$(cat /proc/sys/kernel/random/uuid 2>/dev/null)
+  if [ -n "$UUID" ]; then
+    sed -i "s/ac-unknown/ac-$UUID/g" $${IPKG_INSTROOT}/etc/acctl/ac.json
+  fi
+fi
+
+# Set proper permissions
+chmod 644 $${IPKG_INSTROOT}/etc/acctl/ac.json
 fi
 
 # Enable and start the service

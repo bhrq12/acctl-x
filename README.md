@@ -1,222 +1,132 @@
-# OpenWrt AC Controller (acctl) v2.0
+# AC Controller (acctl) v2.0
 
-## 项目简介
+OpenWrt AC Controller - Centralized Access Point Management System
 
-OpenWrt AC Controller (acctl) 是一个专为 OpenWrt 路由器设计的无线接入点控制器，提供以下功能：
+## Project Structure
 
-- **集中管理**：统一管理多个无线接入点
-- **自动配置**：自动为 AP 分配 IP 地址
-- **实时监控**：监控 AP 状态和客户端连接
-- **固件管理**：集中管理 AP 固件升级
-- **告警系统**：实时告警和事件记录
-- **安全认证**：基于 CHAP 的安全认证机制
-- **多版本兼容**：支持 OpenWrt 18.06-24.10 版本
+This project has been split into three independent packages for better compatibility and flexibility:
 
-## 系统要求
+### 1. acctl-ac
+- **Purpose**: AC Server (acser) - Central controller
+- **Main components**: `acser` (AC server), `acctl-cli` (command-line tool)
+- **Dependencies**: +libjson-c +libpthread +libubus +libiwinfo
+- **Files**: init.d scripts, config files, database
 
-- OpenWrt 18.06 或更高版本
-- 至少 64MB 内存
-- 至少 10MB 存储空间
-- 网络接口（推荐使用 br-lan）
+### 2. acctl-ap
+- **Purpose**: AP Client (apctl) - Runs on managed APs
+- **Main component**: `apctl` (AP client)
+- **Dependencies**: +libjson-c +libpthread +libubus +libiwinfo
+- **Files**: init.d script for AP client
 
-## 安装方法
+### 3. luci-app-acctl
+- **Purpose**: Web management interface
+- **Compatibility**: OpenWrt 18.06-21.02 (Lua) and OpenWrt 22+ (ucode)
+- **Dependencies**: +acctl-ac +libuci-lua +libubus-lua
+- **Files**: LuCI controller, views, CBI models
 
-### 方法一：使用 opkg 安装
+## Build Instructions
 
-1. 下载适合您设备架构的 acctl 软件包
-2. 使用 opkg 命令安装：
-   ```bash
-   opkg install acctl_2.0-1_*.ipk
-   ```
-
-### 方法二：从源代码编译
-
-1. 克隆源代码仓库：
-   ```bash
-   git clone https://github.com/yourusername/acctl.git
-   ```
-
-2. 将 acctl 目录复制到 OpenWrt 构建系统的 package 目录：
-   ```bash
-   cp -r acctl /path/to/openwrt/package/
-   ```
-
-3. 配置构建选项：
-   ```bash
-   make menuconfig
-   ```
-   在 "Network" 菜单中选择 "acctl"
-
-4. 编译软件包：
-   ```bash
-   make package/acctl/compile V=99
-   ```
-
-5. 安装生成的软件包：
-   ```bash
-   opkg install bin/packages/*/base/acctl_2.0-1_*.ipk
-   ```
-
-## 自动配置
-
-安装完成后，acctl 会自动进行以下配置：
-
-1. **默认密码**：设置为 `acctl@2024`
-2. **IP 地址池**：默认分配 192.168.1.200-192.168.1.254
-3. **服务启动**：自动启用并启动服务
-4. **数据库初始化**：创建默认的 JSON 数据库
-
-## Web 界面访问
-
-1. 打开浏览器，访问 OpenWrt Web 管理界面
-2. 导航到 "网络" → "AC Controller"
-3. 使用默认密码 `acctl@2024` 登录
-
-## 命令行工具
-
-acctl 提供了命令行工具 `acctl-cli`，用于管理和监控 AP：
+### Method 1: Build individual packages
 
 ```bash
-# 列出所有 AP
-tcctl-cli aps
+# Build AC server package
+make package/acctl/Makefile.ac compile V=99
 
-# 列出所有告警
-acctl-cli alarms
+# Build AP client package
+make package/acctl/Makefile.ap compile V=99
 
-# 列出所有固件
-acctl-cli firmware
-
-# 查看数据库统计信息
-acctl-cli stats
-
-# 确认告警
-acctl-cli ack <alarm_id>
-
-# 确认所有告警
-acctl-cli ack-all
-
-# 写入审计日志
-acctl-cli audit <user> <action> <rtype> <rid> <old> <new> <ip>
+# Build LuCI app package
+make package/acctl/Makefile.luci compile V=99
 ```
 
-## 配置文件
-
-### 主要配置文件
-
-- **/etc/config/acctl**：UCI 配置文件，包含基本设置
-- **/etc/acctl/ac.json**：JSON 格式的数据库文件
-
-### UCI 配置选项
+### Method 2: Build all packages
 
 ```bash
-# 编辑配置文件
-uci edit acctl
-
-# 查看配置
-uci show acctl
-
-# 提交更改
-uci commit acctl
+# Build all acctl packages
+make package/acctl/compile V=99
 ```
 
-主要配置选项：
+## Installation
 
-| 选项 | 说明 | 默认值 |
-|------|------|--------|
-| enabled | 是否启用服务 | 1 (启用) |
-| interface | 网络接口 | br-lan |
-| port | 服务端口 | 7960 |
-| password | 管理密码 | acctl@2024 |
-| brditv | 广播间隔 (秒) | 30 |
-| reschkitv | IP 池刷新间隔 (秒) | 300 |
-| msgitv | 消息处理间隔 (秒) | 3 |
-| daemon | 守护进程模式 | 1 (启用) |
-| debug | 调试模式 | 0 (禁用) |
-
-## 服务管理
-
+### Full installation (recommended)
 ```bash
-# 启动服务
-/etc/init.d/acctl start
-
-# 停止服务
-/etc/init.d/acctl stop
-
-# 重启服务
-/etc/init.d/acctl restart
-
-# 启用服务（开机自启）
-/etc/init.d/acctl enable
-
-# 禁用服务
-/etc/init.d/acctl disable
-
-# 查看服务状态
-/etc/init.d/acctl status
+opkg install acctl-ac acctl-ap luci-app-acctl
 ```
 
-## 故障排查
-
-### 常见问题
-
-1. **服务无法启动**
-   - 检查配置文件是否正确
-   - 检查端口是否被占用
-   - 查看系统日志：`logread | grep acctl`
-
-2. **Web 界面无法访问**
-   - 检查服务是否运行：`/etc/init.d/acctl status`
-   - 检查防火墙设置
-   - 清除浏览器缓存
-
-3. **AP 无法注册**
-   - 检查 AP 是否在同一网络
-   - 检查密码是否正确
-   - 查看 AC 控制器日志
-
-### 日志查看
-
+### Minimal installation
 ```bash
-# 查看系统日志中的 acctl 相关信息
-logread | grep acctl
+# For AC server only
+opkg install acctl-ac
 
-# 查看详细日志（启用调试模式后）
-logread -f | grep acctl
+# For AP client only
+opkg install acctl-ap
 ```
 
-## 安全建议
+## Usage
 
-1. **更改默认密码**：安装后请立即更改默认密码
-   ```bash
-   uci set acctl.@acctl[0].password='your_secure_password'
-   uci commit acctl
-   /etc/init.d/acctl restart
-   ```
+### AC Server (acser)
+- **Service management**: `/etc/init.d/acctl start|stop|restart|status`
+- **Command-line tool**: `acctl-cli`
+- **Web interface**: `http://<device-ip>/cgi-bin/luci/admin/network/acctl`
 
-2. **限制访问**：通过防火墙限制对 AC 控制器的访问
+### AP Client (apctl)
+- **Service management**: `/etc/init.d/apctl start|stop|restart|status`
 
-3. **定期更新**：定期更新 acctl 到最新版本
+## Configuration
 
-## 版本兼容性
+### AC Server
+- **Main config**: `/etc/config/acctl`
+- **Database**: `/etc/acctl/ac.json`
+- **Default password**: `acctl@2024`
 
-| OpenWrt 版本 | 支持状态 | LuCI 类型 |
-|-------------|----------|-----------|
-| 18.06 | 支持 | Lua |
-| 19.07 | 支持 | Lua |
-| 21.02 | 支持 | Lua |
-| 22.03 | 支持 | ucode |
-| 23.05 | 支持 | ucode |
-| 24.10 | 支持 | ucode |
+### AP Client
+- **Configured automatically** by AC server
 
-## 许可证
+## Compatibility
 
-本项目采用 GPL v3 许可证。
+- **OpenWrt 18.06-21.02**: Uses Lua-based LuCI
+- **OpenWrt 22+**: Uses ucode-based LuCI
+- **Architecture**: Compatible with all OpenWrt-supported architectures
 
-## 贡献
+## Features
 
-欢迎提交 issue 和 pull request 来改进这个项目。
+- **Centralized AP management** via TCP + ETH broadcast
+- **CHAP authentication** with UCI-stored passwords
+- **JSON file-based database** for configuration and status
+- **AP grouping** and batch configuration
+- **Alarm/event logging** with severity levels
+- **Firmware OTA upgrade** support
+- **Multi-SSID** support
+- **Profile-based configuration** templates
+- **Real-time status monitoring**
 
-## 联系方式
+## Troubleshooting
 
-- 项目主页：https://github.com/yourusername/acctl
-- 问题反馈：https://github.com/yourusername/acctl/issues
+### Common issues
+1. **Service won't start**: Check `/etc/config/acctl` for valid configuration
+2. **APs not discovered**: Ensure APs are running `apctl` and on the same network
+3. **Web interface error**: Clear browser cache or try a different browser
+4. **Database issues**: Check permissions on `/etc/acctl/ac.json`
+
+### Logs
+- **System logs**: `logread | grep acctl`
+- **Service status**: `/etc/init.d/acctl status`
+
+## Security
+
+- **Password protection**: Change default password via LuCI or UCI
+- **CHAP authentication**: Secure AP registration
+- **Rate limiting**: Protection against brute force attacks
+- **Input validation**: Sanitized user inputs
+
+## License
+
+Apache-2.0
+
+## Author
+
+jianxi sun <ycsunjane@gmail.com>
+
+## Repository
+
+https://github.com/bhrq12/acctl

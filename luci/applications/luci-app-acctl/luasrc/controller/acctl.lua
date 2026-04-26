@@ -1,6 +1,6 @@
 --[[
 LuCI - Lua Configuration Interface
-AC Controller — LuCI Controller Module
+AC Controller - LuCI Controller Module
 JSON backend (replaces SQLite)
 
 Licensed under the Apache License, Version 2.0
@@ -13,10 +13,6 @@ local sys   = require "luci.sys"
 local util  = require "luci.util"
 local http  = require "luci.http"
 local uci   = require "luci.model.uci".cursor()
-
--- ========================================================================
--- Helper: run acctl-cli and parse JSON response
--- ========================================================================
 
 local function cli_output(cmd)
     local f = io.popen(cmd .. " 2>/dev/null")
@@ -39,14 +35,9 @@ local function is_running()
     return sys.call("pgrep -x acser > /dev/null 2>&1") == 0
 end
 
--- ========================================================================
--- Menu entries
--- ========================================================================
-
 function index()
-    -- Network menu entry (existing)
     entry({"admin", "network", "acctl"},
-        alias({"admin", "network", "acctl", "general"}),
+        firstchild(),
         _("AC Controller"), 60).dependent = false
 
     entry({"admin", "network", "acctl", "general"},
@@ -77,20 +68,6 @@ function index()
         cbi("acctl/system"),
         _("System"), 60)
 
-    -- Services menu entry (new)
-    entry({"admin", "services", "acctl"},
-        alias({"admin", "services", "acctl", "status"}),
-        _("AC Controller"), 60).dependent = false
-
-    entry({"admin", "services", "acctl", "status"},
-        template("acctl/services_status"),
-        _("Status"), 10)
-
-    entry({"admin", "services", "acctl", "config"},
-        cbi("acctl/services_config"),
-        _("Configuration"), 20)
-
-    -- REST API endpoints
     entry({"admin", "network", "acctl", "api", "status"},
         call("api_status"))
 
@@ -118,17 +95,12 @@ function index()
     entry({"admin", "network", "acctl", "api", "restart"},
         call("api_restart"))
 
-    -- Services API endpoints
-    entry({"admin", "services", "acctl", "api", "action"},
+    entry({"admin", "network", "acctl", "api", "action"},
         call("api_action"))
 
-    entry({"admin", "services", "acctl", "api", "switch_mode"},
+    entry({"admin", "network", "acctl", "api", "switch_mode"},
         call("api_switch_mode"))
 end
-
--- ========================================================================
--- API: Service Action (start/stop/restart)
--- ========================================================================
 
 function api_action()
     local action = http.formvalue("action")
@@ -152,10 +124,6 @@ function api_action()
     http.write_json(result)
 end
 
--- ========================================================================
--- API: Switch Mode (ac/ap)
--- ========================================================================
-
 function api_switch_mode()
     local mode = http.formvalue("mode")
     local result = { code = 0, message = "" }
@@ -174,10 +142,6 @@ function api_switch_mode()
     http.write_json(result)
 end
 
--- ========================================================================
--- API: Status
--- ========================================================================
-
 function api_status()
     local stats = cli_json("stats") or {}
     local status = {
@@ -194,16 +158,11 @@ function api_status()
     http.write_json(status)
 end
 
--- ========================================================================
--- API: AP List
--- ========================================================================
-
 function api_aps()
     local mac    = http.formvalue("mac")
     local result = {}
 
     if mac and mac ~= "" then
-        -- Single AP detail — load all and find by mac
         local data = cli_json("aps --limit 500") or {}
         if data and data.aps then
             for _, ap in ipairs(data.aps) do
@@ -222,7 +181,6 @@ function api_aps()
             end
         end
     else
-        -- All APs
         result.aps   = {}
         result.count = 0
         local data = cli_json("aps --limit 500") or {}
@@ -248,10 +206,6 @@ function api_aps()
     http.write_json(result)
 end
 
--- ========================================================================
--- API: AP Bulk Actions
--- ========================================================================
-
 function api_aps_action()
     local action = http.formvalue("action")
     local macs   = http.formvalue("macs") or ""
@@ -265,7 +219,6 @@ function api_aps_action()
         return
     end
 
-    -- Validate action against whitelist
     local valid_actions = { reboot = true, config = true, upgrade = true }
     if not valid_actions[action] then
         result.code    = 400
@@ -275,7 +228,6 @@ function api_aps_action()
         return
     end
 
-    -- Audit log (use only validated action, sanitize macs for shell safety)
     local safe_macs = macs:gsub("[^%x:, ]", "")
     cli_output(string.format(
         "acctl-cli audit admin %s ap_batch '%s' '' '' ''",
@@ -295,10 +247,6 @@ function api_aps_action()
     http.prepare_content("application/json")
     http.write_json(result)
 end
-
--- ========================================================================
--- API: Alarm List
--- ========================================================================
 
 function api_alarms()
     local limit = tonumber(http.formvalue("limit")) or 50
@@ -328,10 +276,6 @@ function api_alarms()
     http.write_json({alarms = alarms, count = #alarms})
 end
 
--- ========================================================================
--- API: Acknowledge Alarms
--- ========================================================================
-
 function api_alarms_ack()
     local ids = http.formvalue("ids") or ""
     local result = { code = 0, acknowledged = 0 }
@@ -350,16 +294,11 @@ function api_alarms_ack()
     http.write_json(result)
 end
 
--- ========================================================================
--- API: AP Groups
--- ========================================================================
-
 function api_groups()
     local data = cli_json("groups") or {}
     local groups = {}
 
     if data.groups then
-        -- Count APs per group from the full AP list
         local aps_data = cli_json("aps --limit 500") or {}
         local ap_count = {}
         if aps_data and aps_data.aps then
@@ -384,10 +323,6 @@ function api_groups()
     http.write_json({groups = groups})
 end
 
--- ========================================================================
--- API: Firmware List
--- ========================================================================
-
 function api_firmwares()
     local data = cli_json("firmware") or {}
 
@@ -408,10 +343,6 @@ function api_firmwares()
     http.write_json({firmwares = firmwares})
 end
 
--- ========================================================================
--- API: Command Execution
--- ========================================================================
-
 function api_cmd()
     local mac = http.formvalue("mac")
     local cmd = http.formvalue("cmd")
@@ -425,7 +356,6 @@ function api_cmd()
         return
     end
 
-    -- Command whitelist validation
     local allowed = {
         ["reboot"]              = true,
         ["uptime"]              = true,
@@ -437,64 +367,15 @@ function api_cmd()
         ["cat /tmp/ap_status"]  = true,
     }
 
-    -- Exact match: command must exactly equal whitelist entry
-    -- Reject if cmd contains any shell metacharacters or control chars
     local dangerous_patterns = {
-        ";",     -- command chaining
-        "|",     -- pipe
-        "`",     -- command substitution
-        "$(" ,   -- command substitution variant
-        "&",     -- background
-        "&&",    -- AND chaining
-        "||",    -- OR chaining
-        ">",     -- output redirect
-        "<",     -- input redirect
-        ">>",    -- append redirect
-        "<<",    -- heredoc
-        "~/",    -- home dir expansion
-        "/etc/", -- system config access
-        "/bin/", -- binary dir access
-        "/usr/", -- usr dir access
-        "/var/", -- var dir access
-        "/dev/", -- device access
-        "/proc/",-- procfs access
-        "/root/",-- root dir access
-        "../",   -- directory traversal
-        "0>",    -- fd redirect
-        "1>",    -- stdout redirect
-        "2>",    -- stderr redirect
-        "nohup", -- background process
-        "screen",-- screen sessions
-        "tmux",  -- tmux sessions
-        "wget",  -- network download
-        "curl",  -- network download
-        "nc ",   -- netcat
-        "ncat",  -- netcat variant
-        "python",-- python interpreter
-        "perl",  -- perl interpreter
-        "ruby",  -- ruby interpreter
-        "php",   -- php interpreter
-        "bash",  -- bash shell
-        "sh -c", -- explicit shell
-        "exec",  -- exec call
-        "eval",  -- eval
-        "chmod", -- permission change
-        "chown", -- ownership change
-        "rm -rf",-- recursive delete
-        "mkfs",  -- filesystem creation
-        "dd ",   -- raw disk write
-        "fdisk", -- disk partitioning
-        "mount", -- mount filesystem
-        "umount",-- unmount filesystem
-        "passwd",-- password change
-        "su ",   -- switch user
-        "sudo",  -- privilege escalation
-        "shutdown", -- system shutdown
-        "halt",  -- halt system
-        "poweroff", -- power off
+        ";", "|", "`", "$(", "&", "&&", "||", ">", "<", ">>", "<<",
+        "~/", "/etc/", "/bin/", "/usr/", "/var/", "/dev/", "/proc/", "/root/", "../",
+        "0>", "1>", "2>", "nohup", "screen", "tmux", "wget", "curl", "nc ", "ncat",
+        "python", "perl", "ruby", "php", "bash", "sh -c", "exec", "eval",
+        "chmod", "chown", "rm -rf", "mkfs", "dd ", "fdisk", "mount", "umount",
+        "passwd", "su ", "sudo", "shutdown", "halt", "poweroff",
     }
 
-    -- Check for dangerous patterns
     for _, pattern in ipairs(dangerous_patterns) do
         if cmd:find(pattern, 1, true) then
             result.code    = 403
@@ -505,7 +386,6 @@ function api_cmd()
         end
     end
 
-    -- Reject if command contains path separators not in whitelist
     if cmd:match("/") and not allowed[cmd] then
         result.code    = 403
         result.message = "Command contains forbidden characters"
@@ -514,7 +394,6 @@ function api_cmd()
         return
     end
 
-    -- Exact whitelist match
     local found = allowed[cmd] == true
 
     if not found then
@@ -525,7 +404,6 @@ function api_cmd()
         return
     end
 
-    -- Audit (sanitize inputs for shell safety)
     local safe_mac = mac:gsub("[^%x:]", ""):sub(1, 20)
     local safe_cmd = cmd:gsub("'", "'\\''"):sub(1, 100)
     cli_output(string.format(
@@ -536,10 +414,6 @@ function api_cmd()
     http.prepare_content("application/json")
     http.write_json(result)
 end
-
--- ========================================================================
--- API: Restart Service
--- ========================================================================
 
 function api_restart()
     local result = { code = 0, message = "" }

@@ -29,8 +29,7 @@ define Package/acctl/description
   - Firmware OTA upgrade support
   - LuCI web management interface
 
-  Requires: OpenWrt 18.06+ (Legacy Lua mode)
-  Note: For OpenWrt 22+ (ucode mode), compatibility update needed
+  Requires: OpenWrt 18.06+
 endef
 
 define Package/acctl/conffiles
@@ -39,8 +38,9 @@ endef
 
 define Build/Prepare
 	$(CP) ./src   $(PKG_BUILD_DIR)/src
-	$(CP) ./luci  $(PKG_BUILD_DIR)/luci
 	$(CP) ./files $(PKG_BUILD_DIR)/files
+	$(CP) ./luci  $(PKG_BUILD_DIR)/luci
+	$(CP) ./luci24 $(PKG_BUILD_DIR)/luci24
 endef
 
 define Build/Configure
@@ -55,21 +55,26 @@ define Build/Compile
 endef
 
 define Package/acctl/install
+	# Install binaries
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/acser $(1)/usr/bin/acser
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/apctl $(1)/usr/bin/apctl
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/acctl-cli $(1)/usr/bin/acctl-cli
 
+	# Install init scripts
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/etc/init.d/acctl $(1)/etc/init.d/acctl
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/etc/init.d/apctl $(1)/etc/init.d/apctl
 
+	# Install config files
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/files/etc/config/acctl $(1)/etc/config/acctl
 
+	# Create database directory
 	$(INSTALL_DIR) $(1)/etc/acctl
 	touch $(1)/etc/acctl/ac.json
 
+	# Install LuCI files for OpenWrt 18.06-21.02 (Lua)
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/controller
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/luasrc/controller/acctl.lua \
 		$(1)/usr/lib/lua/luci/controller/acctl.lua
@@ -110,7 +115,18 @@ define Package/acctl/install
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/view/acctl/user_badge.htm \
 		$(1)/usr/lib/lua/luci/view/acctl/user_badge.htm
 
-	# Do not install uci-defaults script - use postinst instead to avoid line ending issues
+	# Install LuCI files for OpenWrt 22+ (ucode)
+	$(INSTALL_DIR) $(1)/usr/share/ucode/luci/controller
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci24/usr/share/ucode/luci/controller/acctl.js \
+		$(1)/usr/share/ucode/luci/controller/acctl.js
+
+	$(INSTALL_DIR) $(1)/usr/share/luci/views/acctl
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci24/usr/share/luci/views/acctl/*.ut \
+		$(1)/usr/share/luci/views/acctl/
+
+	$(INSTALL_DIR) $(1)/usr/share/rpcd/acl.d
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci24/usr/share/rpcd/acl.d/luci-app-acctl.json \
+		$(1)/usr/share/rpcd/acl.d/luci-app-acctl.json
 endef
 
 define Package/acctl/postinst

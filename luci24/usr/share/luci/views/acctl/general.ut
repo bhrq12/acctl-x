@@ -1,0 +1,70 @@
+<script>
+    function render() {
+        return view主信息卡片({
+            title: 'AC Controller - General Settings',
+            stats: getStats(),
+            sections: [
+                {
+                    title: 'Service Status',
+                    items: [
+                        { label: 'Status', value: '{{status}}', class: '{{status_class}}' },
+                        { label: 'Total APs', value: '{{ap_total}}' },
+                        { label: 'Online APs', value: '{{ap_online}}' },
+                        { label: 'Active Alarms', value: '{{alarm_count}}' }
+                    ]
+                },
+                {
+                    title: 'Configuration',
+                    items: [
+                        { label: 'Interface', value: '{{interface}}' },
+                        { label: 'Port', value: '{{port}}' },
+                        { label: 'Broadcast Interval', value: '{{brditv}}s' },
+                        { label: 'Message Interval', value: '{{msgitv}}s' }
+                    ]
+                }
+            ],
+            actions: [
+                { label: 'Restart Service', action: 'restart', class: 'btn' }
+            ]
+        });
+    }
+
+    function getStats() {
+        return call('acctl', 'apiStatus');
+    }
+
+    function restartService() {
+        if (confirm('Restart AC Controller service?')) {
+            call('acctl', 'apiRestart');
+            setTimeout(() => location.reload(), 2000);
+        }
+    }
+</script>
+
+<style>
+.acctl-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.acctl-stat-card { background: #f8f9fa; border-radius: 8px; padding: 1rem; }
+.acctl-stat-value { font-size: 2rem; font-weight: bold; }
+.acctl-stat-label { color: #666; font-size: 0.9rem; }
+.status-running { color: #28a745; }
+.status-stopped { color: #dc3545; }
+</style>
+
+<div class="acctl-stats">
+    <div class="acctl-stat-card">
+        <div class="acctl-stat-value {{status_class}}">{{status}}</div>
+        <div class="acctl-stat-label">Service Status</div>
+    </div>
+    <div class="acctl-stat-card">
+        <div class="acctl-stat-value">{{ap_online}}/{{ap_total}}</div>
+        <div class="acctl-stat-label">APs Online</div>
+    </div>
+    <div class="acctl-stat-card">
+        <div class="acctl-stat-value">{{alarm_count}}</div>
+        <div class="acctl-stat-label">Active Alarms</div>
+    </div>
+    <div class="acctl-stat-card">
+        <div class="acctl-stat-value">{{pool_left}}/{{pool_total}}</div>
+        <div class="acctl-stat-label">IP Pool Available</div>
+    </div>
+</div>

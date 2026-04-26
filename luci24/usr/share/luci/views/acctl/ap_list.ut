@@ -1,0 +1,88 @@
+<script>
+    let aps = [];
+    let selectedMacs = [];
+
+    function load() {
+        aps = call('acctl', 'apiAps') || [];
+        render();
+    }
+
+    function render() {
+        return view表格({
+            title: 'Access Points',
+            columns: ['MAC', 'Hostname', 'IP', 'SSID', 'Users', 'Status', 'Last Seen', 'Actions'],
+            rows: aps.map(ap => [
+                ap.mac,
+                ap.hostname || '-',
+                ap.wan_ip || '-',
+                ap.wifi_ssid || '-',
+                ap.online_users.toString(),
+                ap.online ? 'Online' : 'Offline',
+                formatTime(ap.last_seen),
+                renderActions(ap.mac)
+            ])
+        });
+    }
+
+    function formatTime(ts) {
+        if (!ts) return '-';
+        const d = new Date(ts * 1000);
+        return d.toLocaleString();
+    }
+
+    function renderActions(mac) {
+        return `<button onclick="showApDetail('${mac}')">Detail</button>
+                <button onclick="rebootAp('${mac}')">Reboot</button>`;
+    }
+
+    function showApDetail(mac) {
+        const ap = aps.find(a => a.mac === mac);
+        alert(JSON.stringify(ap, null, 2));
+    }
+
+    function rebootAp(mac) {
+        if (confirm('Reboot AP ' + mac + '?')) {
+            call('acctl', 'apiApsAction', { action: 'reboot', macs: mac });
+        }
+    }
+</script>
+
+<style>
+.ap-table { width: 100%; border-collapse: collapse; }
+.ap-table th, .ap-table td { padding: 0.5rem; border: 1px solid #ddd; text-align: left; }
+.ap-table tr.online td { background: #e8f5e9; }
+.ap-table tr.offline td { background: #ffebee; }
+</style>
+
+<h2>Access Points ({{aps.length}})</h2>
+<table class="ap-table">
+    <thead>
+        <tr>
+            <th>MAC</th>
+            <th>Hostname</th>
+            <th>IP</th>
+            <th>SSID</th>
+            <th>Users</th>
+            <th>Status</th>
+            <th>Last Seen</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ap in aps %}
+        <tr class="{{ap.online ? 'online' : 'offline'}}">
+            <td>{{ap.mac}}</td>
+            <td>{{ap.hostname || '-'}}</td>
+            <td>{{ap.wan_ip || '-'}}</td>
+            <td>{{ap.wifi_ssid || '-'}}</td>
+            <td>{{ap.online_users}}</td>
+            <td>{{ap.online ? 'Online' : 'Offline'}}</td>
+            <td>{{formatTime(ap.last_seen)}}</td>
+            <td>
+                <button onclick="showApDetail('{{ap.mac}}')">Detail</button>
+                <button onclick="rebootAp('{{ap.mac}}')">Reboot</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

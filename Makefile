@@ -29,7 +29,8 @@ define Package/acctl/description
   - Firmware OTA upgrade support
   - LuCI web management interface
 
-  Requires: OpenWrt 18.06+
+  Requires: OpenWrt 18.06+ (Legacy Lua mode)
+  Note: For OpenWrt 22+ (ucode mode), compatibility update needed
 endef
 
 define Package/acctl/conffiles

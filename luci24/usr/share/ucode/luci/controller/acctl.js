@@ -5,7 +5,6 @@
 
 import { curent } from 'uci';
 import { exec, call } from 'ubus';
-import { readlink } from 'fs';
 
 return class ACctlController extends LuCI.controller {
     constructor() {
@@ -37,7 +36,6 @@ return class ACctlController extends LuCI.controller {
     }
 
     index() {
-        // Network menu entry (existing)
         super.entry({
             title: _('AC Controller'),
             path: '/admin/network/acctl',
@@ -51,18 +49,13 @@ return class ACctlController extends LuCI.controller {
             super.cart('admin/network/acctl/system')
         ));
 
-        // Services menu entry (new)
         super.entry({
-            title: _('AC Controller'),
+            title: _('AC Controller Status'),
             path: '/admin/services/acctl',
             icon: 'signal',
-        }, super.chain(
-            super.cart('admin/services/acctl/status'),
-            super.cart('admin/services/acctl/config')
-        ));
+        }, super.cart('admin/services/acctl/status'));
     }
 
-    // API: Status
     apiStatus() {
         const stats = this.getCLI('stats') || {};
         const running = this.isRunning();
@@ -78,13 +71,11 @@ return class ACctlController extends LuCI.controller {
         http.write_json(response);
     }
 
-    // API: AP List
     apiAps() {
         const mac = http.formvalue('mac');
         const result = { aps: [], count: 0 };
 
         if (mac && mac !== '') {
-            // Single AP detail
             const data = this.getCLI('aps --limit 500');
             if (data && data.aps) {
                 for (const ap of data.aps) {
@@ -103,7 +94,6 @@ return class ACctlController extends LuCI.controller {
                 }
             }
         } else {
-            // All APs
             const data = this.getCLI('aps --limit 500');
             if (data && data.aps) {
                 for (const ap of data.aps) {
@@ -125,7 +115,6 @@ return class ACctlController extends LuCI.controller {
         http.write_json(result);
     }
 
-    // API: AP Actions
     apiApsAction() {
         const action = http.formvalue('action');
         const macs = http.formvalue('macs') || '';
@@ -138,7 +127,6 @@ return class ACctlController extends LuCI.controller {
             return;
         }
 
-        // Validate action
         const valid_actions = { reboot: true, config: true, upgrade: true };
         if (!valid_actions[action]) {
             result.code = 400;
@@ -147,7 +135,6 @@ return class ACctlController extends LuCI.controller {
             return;
         }
 
-        // Sanitize and execute
         const safe_macs = macs.replace(/[^%x:, ]/g, '');
         this.getCLI(`audit admin ${action} ap_batch '${safe_macs.substring(0, 50)}' '' '' ''`);
 
@@ -158,7 +145,6 @@ return class ACctlController extends LuCI.controller {
         http.write_json(result);
     }
 
-    // API: Alarms
     apiAlarms() {
         const limit = parseInt(http.formvalue('limit')) || 50;
         const data = this.getCLI('alarms --limit ' + limit) || { alarms: [] };
@@ -183,7 +169,6 @@ return class ACctlController extends LuCI.controller {
         http.write_json({ alarms: alarms, count: alarms.length });
     }
 
-    // API: Acknowledge Alarms
     apiAlarmsAck() {
         const ids = http.formvalue('ids') || '';
         const result = { code: 0, acknowledged: 0 };
@@ -201,12 +186,10 @@ return class ACctlController extends LuCI.controller {
         http.write_json(result);
     }
 
-    // API: Groups
     apiGroups() {
         const data = this.getCLI('groups') || { groups: [] };
         const groups = [];
 
-        // Count APs per group
         const aps_data = this.getCLI('aps --limit 500') || { aps: [] };
         const ap_count = {};
         for (const ap of (aps_data.aps || [])) {
@@ -226,7 +209,6 @@ return class ACctlController extends LuCI.controller {
         http.write_json({ groups: groups });
     }
 
-    // API: Firmwares
     apiFirmwares() {
         const data = this.getCLI('firmware') || { firmwares: [] };
         const firmwares = [];
@@ -243,7 +225,6 @@ return class ACctlController extends LuCI.controller {
         http.write_json({ firmwares: firmwares });
     }
 
-    // API: Command Execution
     apiCmd() {
         const mac = http.formvalue('mac');
         const cmd = http.formvalue('cmd');
@@ -256,7 +237,6 @@ return class ACctlController extends LuCI.controller {
             return;
         }
 
-        // Command whitelist
         const allowed = {
             'reboot': true,
             'uptime': true,
@@ -268,7 +248,6 @@ return class ACctlController extends LuCI.controller {
             'cat /tmp/ap_status': true
         };
 
-        // Dangerous patterns check
         const dangerous = [';', '|', '`', '$(', '&', '&&', '||', '>', '<', '>>',
             '/bin/', '/etc/', '/usr/', '/var/', '/dev/', '/proc/', '/root/', '../',
             'nohup', 'screen', 'tmux', 'wget', 'curl', 'python', 'perl', 'ruby',
@@ -291,7 +270,6 @@ return class ACctlController extends LuCI.controller {
             return;
         }
 
-        // Audit and execute
         const safe_mac = mac.replace(/[^%x:]/g, '').substring(0, 20);
         this.getCLI(`audit admin EXEC ap '${safe_mac}' '' '${cmd}' ''`);
 
@@ -299,7 +277,6 @@ return class ACctlController extends LuCI.controller {
         http.write_json(result);
     }
 
-    // API: Restart Service
     apiRestart() {
         const result = { code: 0, message: '' };
         try {
@@ -312,7 +289,6 @@ return class ACctlController extends LuCI.controller {
         http.write_json(result);
     }
 
-    // API: Service Action (start/stop/restart)
     apiAction() {
         const action = http.formvalue('action');
         const result = { code: 0, message: '' };
@@ -338,7 +314,6 @@ return class ACctlController extends LuCI.controller {
         http.write_json(result);
     }
 
-    // API: Switch Mode (ac/ap)
     apiSwitchMode() {
         const mode = http.formvalue('mode');
         const result = { code: 0, message: '' };

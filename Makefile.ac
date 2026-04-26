@@ -39,7 +39,7 @@ define Build/Compile
 		CC="$(TARGET_CC)" \
 		CFLAGS="$(TARGET_CFLAGS) -I$(PKG_BUILD_DIR)/src/include -Wall -Wextra" \
 		LDFLAGS="$(TARGET_LDFLAGS) -lpthread -lm -ljson-c" \
-		acser
+		acser acctl-cli
 endef
 
 define Package/acctl-ac/install

@@ -6,12 +6,11 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-acctl
-PKG_VERSION:=2.1
+PKG_VERSION:=2.0
 PKG_RELEASE:=1
 PKG_LICENSE:=Apache-2.0
 
-# Main depends
-PKG_DEPENDS:=+luci-lib-base +luci-lib-ubus +luci-lib-jsonc +libuci-lua +libjson-c +libpthread +libubus +libiwinfo
+PKG_DEPENDS:=+luci-lib-base +luci-lib-jsonc +libuci-lua +libjson-c +libpthread +libubus +libiwinfo
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -27,20 +26,20 @@ define Package/luci-app-acctl
 endef
 
 define Package/luci-app-acctl/description
-  OpenWrt AC Controller v2.1 - Web Management Interface
+ OpenWrt AC Controller v2.0 - Web Management Interface
 
-  Compatible with OpenWrt 22.03+ and LuCI with ucode support.
+ Compatible with OpenWrt 22.03+ and LuCI with ucode support.
 
-  Features:
-  - AC server (acser) manages APs centrally via TCP + ETH broadcast
-  - AP client (apctl) runs on each managed Access Point
-  - CHAP authentication with UCI-stored passwords
-  - JSON file-based database for AP configuration and status
-  - AP grouping and batch configuration
-  - Alarm/event logging
-  - Firmware OTA upgrade support
+ Features:
+ - AC server (acser) manages APs centrally via TCP + ETH broadcast
+ - AP client (apctl) runs on each managed Access Point
+ - CHAP authentication with UCI-stored passwords
+ - JSON file-based database for AP configuration and status
+ - AP grouping and batch configuration
+ - Alarm/event logging
+ - Firmware OTA upgrade support
 
-  Requires: acctl package (acser, apctl, acctl-cli)
+ Requires: acctl package (acser, apctl, acctl-cli)
 endef
 
 define Build/Prepare
@@ -53,7 +52,6 @@ define Build/Configure
 endef
 
 define Build/Compile
-	# ucode templates don't need compilation
 	$(MAKE) -C $(PKG_BUILD_DIR)/src \
 		CC="$(TARGET_CC)" \
 		CFLAGS="$(TARGET_CFLAGS) -I$(PKG_BUILD_DIR)/src/include -Wall -Wextra" \
@@ -62,41 +60,33 @@ define Build/Compile
 endef
 
 define Package/luci-app-acctl/install
-	# Install CLI tools
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/acser $(1)/usr/bin/acser
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/apctl $(1)/usr/bin/apctl
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/acctl-cli $(1)/usr/bin/acctl-cli
 
-	# Install init scripts
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/etc/init.d/acctl $(1)/etc/init.d/acctl
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/etc/init.d/apctl $(1)/etc/init.d/apctl
 
-	# Install UCI config
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/files/etc/config/acctl $(1)/etc/config/acctl
 
-	# Initialize database directory
 	$(INSTALL_DIR) $(1)/etc/acctl
 	touch $(1)/etc/acctl/ac.json
 
-	# Install JavaScript controller for LuCI 24.x
 	$(INSTALL_DIR) $(1)/usr/share/ucode/luci/controller
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci24/usr/share/ucode/luci/controller/acctl.js \
 		$(1)/usr/share/ucode/luci/controller/acctl.js
 
-	# Install ucode view templates
 	$(INSTALL_DIR) $(1)/usr/share/luci/views/acctl
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci24/usr/share/luci/views/acctl/*.ut \
 		$(1)/usr/share/luci/views/acctl/
 
-	# Install ACL definitions
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/acl.d
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci24/usr/share/rpcd/acl.d/luci-app-acctl.json \
 		$(1)/usr/share/rpcd/acl.d/luci-app-acctl.json
 
-	# Install uci-defaults
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/etc/uci-defaults/luci-app-acctl \
 		$(1)/etc/uci-defaults/luci-app-acctl

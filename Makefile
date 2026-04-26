@@ -110,9 +110,47 @@ define Package/acctl/install
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/view/acctl/user_badge.htm \
 		$(1)/usr/lib/lua/luci/view/acctl/user_badge.htm
 
+	# Create postinst script directly in Makefile to avoid line ending issues
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/luci/applications/luci-app-acctl/root/etc/uci-defaults/luci-app-acctl \
 		$(1)/etc/uci-defaults/luci-app-acctl
+endef
+
+define Package/acctl/postinst
+#!/bin/sh
+[ "$${IPKG_NO_SCRIPT}" = "1" ] && exit 0
+[ -s "$${IPKG_INSTROOT}/lib/functions.sh" ] || exit 0
+. $${IPKG_INSTROOT}/lib/functions.sh
+
+# Initialize database directory
+[ -d $${IPKG_INSTROOT}/etc/acctl ] || mkdir -p $${IPKG_INSTROOT}/etc/acctl
+
+# Create default database if not exists
+if [ ! -f $${IPKG_INSTROOT}/etc/acctl/ac.json ]; then
+cat > $${IPKG_INSTROOT}/etc/acctl/ac.json <<'EOF'
+{
+  "ac": {
+    "uuid": "ac-$(cat /proc/sys/kernel/random/uuid)",
+    "name": "OpenWrt-AC"
+  },
+  "resource": {
+    "ip_start": "192.168.1.200",
+    "ip_end": "192.168.1.254",
+    "ip_mask": "255.255.255.0"
+  },
+  "aps": [],
+  "groups": [],
+  "alarms": [],
+  "firmwares": []
+}
+EOF
+fi
+
+# Enable and start the service
+$${IPKG_INSTROOT}/etc/init.d/acctl enable
+$${IPKG_INSTROOT}/etc/init.d/acctl start
+
+exit 0
 endef
 
 $(eval $(call BuildPackage,acctl))

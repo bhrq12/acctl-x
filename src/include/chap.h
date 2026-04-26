@@ -20,8 +20,4 @@ int  chap_msg_cmp_md5(struct msg_head_t *msg, int len, uint32_t random);
 void chap_fill_msg_md5(struct msg_head_t *msg, int len, int random);
 uint32_t chap_get_random(void);
 
-/* Password management (v2.0 — no hardcoded password) */
-const char *sec_get_password(void);
-int  sec_password_check(void);
-
 #endif /* __CHAP_H__ */

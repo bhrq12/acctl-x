@@ -31,6 +31,7 @@
 #include "db.h"
 #include "resource.h"
 #include "log.h"
+#include "sec.h"
 
 /* Forward declarations */
 static void *db_autosave_thread(void *arg);
@@ -267,24 +268,6 @@ static json_object *find_in_array(json_object *arr, const char *key, const char 
     return NULL;
 }
 
-/* Find object in array by int key=value */
-static json_object *find_in_array_int(json_object *arr, const char *key, int ival)
-{
-    if (!arr || !json_object_is_type(arr, json_type_array))
-        return NULL;
-
-    int len = json_object_array_length(arr);
-    for (int i = 0; i < len; i++) {
-        json_object *item = json_object_array_get_idx(arr, i);
-        json_object *jv;
-        if (json_object_object_get_ex(item, key, &jv)) {
-            if (json_object_get_int(jv) == ival)
-                return item;
-        }
-    }
-    return NULL;
-}
-
 /* Find object in array by key=int_value */
 static int find_index_in_array_int(json_object *arr, const char *key, int ival)
 {
@@ -336,89 +319,11 @@ static int get_int(json_object *obj, const char *key)
     return json_object_get_int(jv);
 }
 
-/* Helper: get int64 field */
-static int64_t get_int64(json_object *obj, const char *key)
-{
-    json_object *jv;
-    if (!json_object_object_get_ex(obj, key, &jv))
-        return 0;
-    return json_object_get_int64(jv);
-}
-
 /* Helper: set int64 field */
 static void set_int64(json_object *obj, const char *key, int64_t val)
 {
     json_object_object_add(obj, key,
         json_object_new_int64(val));
-}
-
-/* Helper: delete object from array by key=value */
-static int del_from_array(json_object *arr, const char *key, const char *value)
-{
-    if (!arr || !json_object_is_type(arr, json_type_array))
-        return -1;
-
-    int len = json_object_array_length(arr);
-    for (int i = 0; i < len; i++) {
-        json_object *item = json_object_array_get_idx(arr, i);
-        json_object *jv;
-        if (json_object_object_get_ex(item, key, &jv)) {
-            const char *sv = json_object_get_string(jv);
-            if (sv && strcmp(sv, value) == 0) {
-                json_object_array_put_idx(arr, i, NULL);
-                json_object_array_del_idx(arr, i, 1);
-                db->modified = 1;
-                return 0;
-            }
-        }
-    }
-    return -1;
-}
-
-/* Helper: escape JSON string value */
-static void json_escape_append(char *dest, int *dest_len, int dest_cap,
-    const char *key, const char *val)
-{
-    if (*dest_len >= dest_cap - 1) return;
-    char *dp = dest + *dest_len;
-    int space = dest_cap - *dest_len;
-
-    int pos = 0;
-    if (*dest_len == 0 || dest[0] != '{') {
-        dp[pos++] = '{';
-    } else {
-        dp[pos++] = ',';
-    }
-
-    /* "key":" */
-    int klen = strlen(key);
-    int vlen = strlen(val ? val : "");
-    if (pos + klen + vlen + 6 >= space) {
-        *dest_len = dest_cap;
-        return;
-    }
-
-    dp[pos++] = '"';
-    memcpy(dp + pos, key, klen);
-    pos += klen;
-    dp[pos++] = '"';
-    dp[pos++] = ':';
-    dp[pos++] = '"';
-
-    /* Value with basic escape */
-    const char *p = val ? val : "";
-    while (*p && pos < space - 3) {
-        if (*p == '"' || *p == '\\') {
-            dp[pos++] = '\\';
-            if (pos < space - 1) dp[pos++] = *p;
-        } else {
-            dp[pos++] = *p;
-        }
-        p++;
-    }
-    dp[pos++] = '"';
-    dp[pos] = '\0';
-    *dest_len += pos;
 }
 
 /* ========================================================================
@@ -569,7 +474,7 @@ int db_query_res(db_t *dbp, char *buffer, int len)
 
     /* Build JSON string from resource object fields */
     json_object *json_res = json_object_new_object();
-    for (int i = 0; i < tables.res.col_num; i++) {
+    for (unsigned int i = 0; i < tables.res.col_num; i++) {
         const char *key = tables.res.head[i].name;
         json_object *jv;
         if (json_object_object_get_ex(res, key, &jv)) {

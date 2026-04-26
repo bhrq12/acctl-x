@@ -345,7 +345,7 @@ static void __ap_reg(struct ap_hash_t *aphash,
 	}
 
 	if (!alloc_addr) {
-		ip = res_ip_alloc(NULL, msg->header.mac);  /* NULL = auto-allocate */
+		ip = res_ip_alloc(NULL, (char *)msg->header.mac);  /* NULL = auto-allocate */
 		if (!ip) {
 			sys_err("IP pool exhausted, cannot register %s\n",
 				mac_str);
@@ -379,7 +379,7 @@ static void __ap_reg(struct ap_hash_t *aphash,
 
 	/* 7. Send response via the same protocol (ETH or TCP) */
 	net_send(proto, aphash->ap.sock >= 0 ? aphash->ap.sock : -1,
-		msg->header.mac, (void *)resp, sizeof(*resp));
+		(char *)msg->header.mac, (void *)resp, sizeof(*resp));
 	free(resp);
 
 	/* 8. Update AP hash table entry */

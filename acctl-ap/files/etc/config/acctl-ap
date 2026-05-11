@@ -1,0 +1,18 @@
+config acctl-ap 'global'
+	option enabled '1'
+	option ac_ip '192.168.1.1'
+	option ac_port '5246'
+	option heartbeat_interval '30'
+
+config acctl-ap 'device'
+	option nic 'br-lan'
+	list ssid 'MySSID'
+	option encryption 'psk2'
+	option key 'password'
+
+config acctl-ap 'security'
+	option password ''
+
+config acctl-ap 'logging'
+	option level 'info'
+	option syslog '1'

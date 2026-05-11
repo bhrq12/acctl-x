@@ -1,0 +1,294 @@
+--[[
+LuCI - Lua Configuration Interface
+AC Controller - LuCI Controller Module
+
+Licensed under the Apache License, Version 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+]]--
+
+module("luci.controller.acctl", package.seeall)
+
+local http       = require "luci.http"
+local uci        = require "luci.model.uci".cursor()
+local middleware = require "acctl.middleware"
+local service    = require "acctl.service"
+
+function index()
+    entry({"admin", "network", "acctl"},
+        firstchild(),
+        _("AC Controller"), 60).dependent = false
+
+    entry({"admin", "network", "acctl", "general"},
+        cbi("acctl/general", {autoapply=true}),
+        _("General Settings"), 10)
+
+    entry({"admin", "network", "acctl", "ap_list"},
+        cbi("acctl/ap_list", {autoapply=true}),
+        _("AP List"), 20)
+
+    entry({"admin", "network", "acctl", "groups"},
+        cbi("acctl/groups", {autoapply=true}),
+        _("AP Groups"), 25)
+
+    entry({"admin", "network", "acctl", "templates"},
+        cbi("acctl/templates", {autoapply=true}),
+        _("Configuration Templates"), 30)
+
+    entry({"admin", "network", "acctl", "alarms"},
+        cbi("acctl/alarms", {autoapply=true}),
+        _("Alarms"), 40)
+
+    entry({"admin", "network", "acctl", "firmware"},
+        cbi("acctl/firmware", {autoapply=true}),
+        _("Firmware Management"), 50)
+
+    entry({"admin", "network", "acctl", "system"},
+        cbi("acctl/system"),
+        _("System Logs"), 60)
+
+    entry({"admin", "network", "acctl", "api", "status"},
+        call("api_status"))
+
+    entry({"admin", "network", "acctl", "api", "aps"},
+        call("api_aps"))
+
+    entry({"admin", "network", "acctl", "api", "aps_action"},
+        call("api_aps_action"))
+
+    entry({"admin", "network", "acctl", "api", "alarms"},
+        call("api_alarms"))
+
+    entry({"admin", "network", "acctl", "api", "alarms_ack"},
+        call("api_alarms_ack"))
+
+    entry({"admin", "network", "acctl", "api", "groups"},
+        call("api_groups"))
+
+    entry({"admin", "network", "acctl", "api", "firmwares"},
+        call("api_firmwares"))
+
+    entry({"admin", "network", "acctl", "api", "cmd"},
+        call("api_cmd"))
+
+    entry({"admin", "network", "acctl", "api", "restart"},
+        call("api_restart"))
+
+    entry({"admin", "network", "acctl", "api", "action"},
+        call("api_action"))
+
+    entry({"admin", "network", "acctl", "api", "switch_mode"},
+        call("api_switch_mode"))
+end
+
+function api_action()
+    if not middleware.check_csrf() then return end
+    
+    local action = http.formvalue("action")
+    local result = service.send_action(action)
+    
+    http.prepare_content("application/json")
+    http.write_json(result)
+end
+
+function api_switch_mode()
+    if not middleware.check_csrf() then return end
+    
+    local mode = http.formvalue("mode")
+    local result = { code = 0, message = "" }
+
+    if mode == "ac" or mode == "ap" then
+        uci:set("acctl", "acctl", "mode", mode)
+        uci:commit("acctl")
+        require "luci.sys".exec("/etc/init.d/acctl restart > /dev/null 2>&1")
+        result.message = "Mode switched to " .. (mode == "ac" and "AC" or "AP") .. " mode"
+    else
+        result.code = 400
+        result.message = "Invalid mode parameter"
+    end
+
+    http.prepare_content("application/json")
+    http.write_json(result)
+end
+
+function api_status()
+    local status = service.get_status()
+    http.prepare_content("application/json")
+    http.write_json(status)
+end
+
+function api_aps()
+    local mac = http.formvalue("mac")
+    local aps = service.get_aps(mac)
+    
+    if mac then
+        http.prepare_content("application/json")
+        http.write_json(aps[1] or {})
+    else
+        http.prepare_content("application/json")
+        http.write_json({ aps = aps, count = #aps })
+    end
+end
+
+function api_aps_action()
+    if not middleware.check_csrf() then return end
+    
+    local action = http.formvalue("action")
+    local macs = http.formvalue("macs") or ""
+    local result = { code = 0, message = "", affected = 0 }
+
+    if action == "" or macs == "" then
+        result.code = 400
+        result.message = "action and macs parameters are required"
+        http.prepare_content("application/json")
+        http.write_json(result)
+        return
+    end
+
+    local valid_actions = { reboot = true, config = true, upgrade = true }
+    if not valid_actions[action] then
+        result.code = 400
+        result.message = "Invalid action parameter"
+        http.prepare_content("application/json")
+        http.write_json(result)
+        return
+    end
+
+    local sys = require "luci.sys"
+    local safe_macs = macs:gsub("[^%x:, ]", "")
+    sys.exec(string.format(
+        "acctl-cli audit admin %s ap_batch '%s' '' '' ''",
+        action, safe_macs:sub(1, 50)))
+
+    if action == "reboot" then
+        result.message = "Reboot command queued for selected APs"
+    elseif action == "config" then
+        result.message = "Configuration push queued"
+    elseif action == "upgrade" then
+        result.message = "Firmware upgrade queued"
+    else
+        result.code = 400
+        result.message = "Unknown action"
+    end
+
+    http.prepare_content("application/json")
+    http.write_json(result)
+end
+
+function api_alarms()
+    local limit = tonumber(http.formvalue("limit")) or 50
+    local data = service.get_alarms() or {}
+
+    local alarms = {}
+    if data.alarms then
+        for _, a in ipairs(data.alarms) do
+            local level = 0
+            if a.level == "warn" then
+                level = 1
+            elseif a.level == "error" then
+                level = 2
+            elseif a.level == "critical" then
+                level = 3
+            end
+            table.insert(alarms, {
+                id           = tonumber(a.id) or 0,
+                ap_mac       = a.mac or "",
+                level        = a.level or "info",
+                level_num    = level,
+                message      = middleware.escape_html(a.message) or "",
+                acknowledged = (a.ack == 1 or a.ack == true),
+                created_at   = middleware.escape_html(a.ts) or ""
+            })
+        end
+    end
+
+    http.prepare_content("application/json")
+    http.write_json({ alarms = alarms, count = #alarms })
+end
+
+function api_alarms_ack()
+    if not middleware.check_csrf() then return end
+    
+    local ids = http.formvalue("ids") or ""
+    local result = { code = 0, acknowledged = 0 }
+    local sys = require "luci.sys"
+
+    if ids == "all" then
+        sys.exec("acctl-cli ack-all")
+        result.acknowledged = -1
+    else
+        for id in ids:gmatch("%d+") do
+            sys.exec("acctl-cli ack " .. id)
+            result.acknowledged = result.acknowledged + 1
+        end
+    end
+
+    http.prepare_content("application/json")
+    http.write_json(result)
+end
+
+function api_groups()
+    local data = service.get_groups() or {}
+    local aps_data = service.get_aps() or {}
+    local ap_count = {}
+
+    for _, ap in ipairs(aps_data) do
+        local gid = tonumber(ap.group_id) or 0
+        ap_count[gid] = (ap_count[gid] or 0) + 1
+    end
+
+    local groups = {}
+    if data.groups then
+        for _, grp in ipairs(data.groups) do
+            table.insert(groups, {
+                id          = tonumber(grp.id) or 0,
+                name        = middleware.escape_html(grp.name) or "",
+                description = middleware.escape_html(grp.description) or "",
+                policy      = middleware.escape_html(grp.policy) or "manual",
+                ap_count    = ap_count[tonumber(grp.id) or 0] or 0
+            })
+        end
+    end
+
+    http.prepare_content("application/json")
+    http.write_json({ groups = groups })
+end
+
+function api_firmwares()
+    local data = service.get_firmwares() or {}
+
+    local firmwares = {}
+    if data.firmwares then
+        for _, fw in ipairs(data.firmwares) do
+            table.insert(firmwares, {
+                version     = middleware.escape_html(fw.version) or "",
+                filename    = middleware.escape_html(fw.filename) or "",
+                size        = tonumber(fw.size) or 0,
+                sha256      = middleware.escape_html(fw.sha256) or "",
+                uploaded_at = middleware.escape_html(fw.uploaded_at) or ""
+            })
+        end
+    end
+
+    http.prepare_content("application/json")
+    http.write_json({ firmwares = firmwares })
+end
+
+function api_cmd()
+    if not middleware.check_csrf() then return end
+    if not middleware.check_permission("execute") then return end
+
+    local mac = middleware.sanitize_input(http.formvalue("mac"))
+    local cmd = middleware.sanitize_input(http.formvalue("cmd"))
+    
+    local result = service.execute_command(mac, cmd)
+    http.prepare_content("application/json")
+    http.write_json(result)
+end
+
+function api_restart()
+    if not middleware.check_csrf() then return end
+    
+    local result = service.restart_controller()
+    http.prepare_content("application/json")
+    http.write_json(result)
+end

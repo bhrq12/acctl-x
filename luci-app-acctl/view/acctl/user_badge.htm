@@ -1,0 +1,11 @@
+<%-
+User count display template with color-coded badges.
+-%>
+<% local users = tonumber(self.value) or 0 %>
+<% if users > 10 then %>
+<span style="color:#dc3545;font-weight:bold"><%==users%></span>
+<% elseif users > 0 then %>
+<span style="color:#fd7e14;font-weight:bold"><%==users%></span>
+<% else %>
+<span style="color:#28a745"><%==users%></span>
+<% end %>

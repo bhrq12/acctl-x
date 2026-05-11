@@ -1,0 +1,66 @@
+#!/bin/sh
+# LuCI app-acctl post-install script
+# Creates default UCI config if not exists
+# NOTE: Password must be set by user on first deployment
+
+[ -f /etc/config/acctl-ac ] && exit 0
+
+cat > /etc/config/acctl-ac <<'EOF'
+config acctl 'acctl'
+	option enabled     '1'
+	option interface   'br-lan'
+	option port        '7960'
+	option password    ''
+	option brditv      '30'
+	option reschkitv   '300'
+	option msgitv      '3'
+	option daemon      '1'
+	option debug       '0'
+
+config node_default 'default'
+	list ssid 'OpenWrt-AC'
+	option encryption 'psk2'
+	option channel_mode '11n'
+	option channel 'auto'
+	option signal 'auto'
+EOF
+
+# Initialize database directory (JSON backend, no sqlite3)
+[ -d /etc/acctl-ac ] || mkdir -p /etc/acctl-ac
+
+# Create default database with IP pool
+cat > /etc/acctl-ac/ac.json <<'EOF'
+{
+  "ac": {
+    "uuid": "ac-$(cat /proc/sys/kernel/random/uuid)",
+    "name": "OpenWrt-AC"
+  },
+  "resource": {
+    "ip_start": "192.168.1.200",
+    "ip_end": "192.168.1.254",
+    "ip_mask": "255.255.255.0"
+  },
+  "aps": [],
+  "groups": [],
+  "alarms": [],
+  "firmwares": []
+}
+EOF
+
+# Force password setup on first boot
+echo ""
+echo "=========================================="
+echo "AC Controller Initial Configuration"
+echo "=========================================="
+echo "WARNING: Default password is not set!"
+echo "Please set a secure password:"
+echo "  uci set acctl-ac.@acctl[0].password='your_secure_password'"
+echo "  uci commit acctl-ac"
+echo "=========================================="
+echo ""
+
+# Enable and start the service
+/etc/init.d/acctl-ac enable
+/etc/init.d/acctl-ac start
+
+exit 0

@@ -1,0 +1,9 @@
+﻿<div class="cbi-value">
+<div style="background:#f5f5f5;padding:10px;border-radius:4px;font-family:monospace">
+<div><strong><%:UUID%>:</strong> <%=self.uci:get("acctl", "acctl", "uuid") or "Not set"%></div>
+<div><strong><%:Interface%>:</strong> <%=self.uci:get("acctl", "acctl", "interface") or "br-lan"%></div>
+<div><strong><%:TCP Port%>:</strong> <%=self.uci:get("acctl", "acctl", "port") or "7960"%></div>
+<div><strong><%:Broadcast Interval%>:</strong> <%=self.uci:get("acctl", "acctl", "brditv") or "30"%>s</div>
+<div><strong><%:IP Pool%>:</strong> <%=self.uci:get("acctl", "acctl", "pool_start") or "192.168.100.1"%> - <%=self.uci:get("acctl", "acctl", "pool_end") or "192.168.100.254"%></div>
+</div>
+</div>

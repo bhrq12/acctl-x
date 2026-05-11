@@ -1,0 +1,117 @@
+# Makefile for acctl-ac source build
+# ============================================================================
+
+CC ?= gcc
+CFLAGS += -D_GNU_SOURCE -Wall -Wextra -std=gnu99 -DSERVER
+CFLAGS += -I./include -I./include/capwap
+LDFLAGS += -lpthread -lm -ljson-c -lmicrohttpd -lssl -lcrypto -lrt
+
+# Object files for AC server (不包含 cli.o，避免多重 main)
+AC_OBJS := \
+	ac/main.o \
+	ac/process.o \
+	ac/api.o \
+	ac/http.o \
+	ac/db.o \
+	ac/net.o \
+	ac/message.o \
+	ac/aphash.o \
+	ac/resource.o
+
+# CAPWAP library objects
+CAPWAP_OBJS := \
+	lib/capwap/capwap.o \
+	lib/capwap/capwap_msg.o \
+	lib/capwap/capwap_net.o \
+	lib/capwap/capwap_dtls.o
+
+# Utility library objects
+LIB_OBJS := \
+	lib/mjson.o \
+	lib/sec.o \
+	lib/chap.o \
+	lib/md5.o \
+	lib/sha256.o \
+	lib/arg.o \
+	lib/link.o \
+	lib/thread.o \
+	lib/dllayer.o \
+	lib/netlayer.o \
+	lib/cfgarg.o \
+	lib/cmdarg.o
+
+# All objects for acser
+OBJS := $(AC_OBJS) $(CAPWAP_OBJS) $(LIB_OBJS)
+
+# CLI specific objects
+CLI_OBJS := \
+	lib/arg.o \
+	lib/link.o \
+	lib/mjson.o \
+	lib/sha256.o \
+	lib/md5.o \
+	lib/dllayer.o \
+	lib/netlayer.o \
+	lib/cfgarg.o \
+	lib/cmdarg.o \
+	lib/thread.o \
+	ac/cli.o
+
+# Targets
+.PHONY: all clean acser acctl-cli
+
+# Default target - build both binaries
+all: acser acctl-cli
+
+# Build acser first (compile objects if needed)
+acser: $(OBJS)
+	@echo "Linking acser..."
+	$(CC) $(CFLAGS) -o acser $(OBJS) $(LDFLAGS)
+	@echo "acser built successfully"
+
+# Build acctl-cli
+acctl-cli: $(CLI_OBJS)
+	@echo "Linking acctl-cli..."
+	$(CC) $(CFLAGS) -o acctl-cli $(CLI_OBJS) $(LDFLAGS)
+	@echo "acctl-cli built successfully"
+
+# Include dependency files
+-include $(OBJS:.o=.d)
+-include $(CLI_OBJS:.o=.d)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -MMD -c $< -o $@
+
+clean:
+	rm -f acser acctl-cli $(OBJS) $(OBJS:.o=.d)
+	rm -f $(CLI_OBJS) $(CLI_OBJS:.o=.d)
+
+# Dependency rules
+ac/main.o: include/api.h include/http.h include/db.h include/process.h
+ac/process.o: include/api.h include/http.h include/db.h include/process.h include/arg.h
+ac/api.o: include/api.h include/http.h include/db.h
+ac/http.o: include/http.h include/api.h
+ac/cli.o: include/arg.h
+ac/db.o: include/db.h include/mjson.h
+ac/net.o: include/net.h include/capwap/capwap.h
+ac/message.o: include/msg.h include/capwap/capwap.h
+ac/aphash.o: include/aphash.h include/db.h
+ac/resource.o: include/resource.h include/db.h
+
+lib/capwap/capwap.o: include/capwap/capwap.h
+lib/capwap/capwap_msg.o: include/capwap/capwap.h include/capwap/capwap_msg.h
+lib/capwap/capwap_net.o: include/capwap/capwap.h include/netlayer.h
+lib/capwap/capwap_dtls.o: include/capwap/capwap.h
+
+lib/mjson.o: include/mjson.h
+lib/sec.o: include/sec.h include/chap.h include/sha256.h
+lib/chap.o: include/chap.h include/md5.h
+lib/md5.o: include/md5.h
+lib/sha256.o: include/sha256.h
+lib/arg.o: include/arg.h
+lib/link.o: include/link.h
+lib/thread.o: include/thread.h
+lib/dllayer.o: include/dllayer.h
+lib/netlayer.o: include/netlayer.h
+lib/cfgarg.o: include/arg.h
+lib/cmdarg.o: include/arg.h

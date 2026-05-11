@@ -1,0 +1,79 @@
+<%#
+AC Controller - Status Bar Template
+Displays real-time status in the LuCI header area.
+%>
+<div id="ac_status_widget" style="
+    display:inline-block;
+    padding:2px 12px;
+    margin-left:12px;
+    background:#f0f0f0;
+    border-radius:12px;
+    font-size:12px;
+    vertical-align:middle;
+    cursor:pointer;
+">
+    <span id="ac_status_dot" style="color:#28a745">&#x25CF;</span>
+    <span id="ac_status_text"><%:AP%>: <span id="ac_online">--</span>/<span id="ac_total">--</span></span>
+    <span id="ac_alarm_container" style="color:#ffc107;margin-left:6px;display:none" title="<%:Active Alarms%>">
+        &#x26A0; <span id="ac_alarms">--</span>
+    </span>
+</div>
+<script type="text/javascript">
+(function() {
+    var REFRESH_INTERVAL = 5000;
+
+    function waitForModule(callback) {
+        if (typeof ACCTL !== 'undefined' && ACCTL.API) {
+            callback();
+        } else {
+            setTimeout(function() { waitForModule(callback); }, 100);
+        }
+    }
+
+    function updateStatus() {
+        if (typeof ACCTL === 'undefined' || !ACCTL.API) {
+            setTimeout(updateStatus, 500);
+            return;
+        }
+
+        ACCTL.API.getStatus(function(err, data) {
+            if (err || !data) return;
+
+            var dot = document.getElementById('ac_status_dot');
+            var online = document.getElementById('ac_online');
+            var total = document.getElementById('ac_total');
+            var alarms = document.getElementById('ac_alarms');
+            var alarmContainer = document.getElementById('ac_alarm_container');
+
+            if (online) online.textContent = data.ap_online || 0;
+            if (total) total.textContent = data.ap_total || 0;
+
+            var alarmCount = data.alarm_count || 0;
+            if (alarms) alarms.textContent = alarmCount;
+
+            if (alarmContainer) {
+                alarmContainer.style.display = alarmCount > 0 ? 'inline' : 'none';
+            }
+
+            if (dot) {
+                if (data.running) {
+                    dot.innerHTML = '&#x25CF;';
+                    dot.style.color = '#28a745';
+                } else {
+                    dot.innerHTML = '&#x25CB;';
+                    dot.style.color = '#dc3545';
+                }
+            }
+
+            if (alarms && alarmCount > 0) {
+                alarms.parentElement.style.color = '#dc3545';
+            }
+        });
+    }
+
+    waitForModule(function() {
+        updateStatus();
+        setInterval(updateStatus, REFRESH_INTERVAL);
+    });
+})();
+</script>

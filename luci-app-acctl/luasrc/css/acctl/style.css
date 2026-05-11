@@ -1,0 +1,385 @@
+/**
+ * AC Controller Custom Styles
+ * Cross-browser compatible CSS with vendor prefixes
+ */
+
+/* Status Widget */
+#ac_status_widget {
+    display: inline-block;
+    padding: 2px 12px;
+    margin-left: 12px;
+    background: #f0f0f0;
+    border-radius: 12px;
+    font-size: 12px;
+    vertical-align: middle;
+    cursor: pointer;
+    -webkit-transition: all 0.3s ease;
+    -moz-transition: all 0.3s ease;
+    -ms-transition: all 0.3s ease;
+    -o-transition: all 0.3s ease;
+    transition: all 0.3s ease;
+}
+
+#ac_status_widget:hover {
+    background: #e0e0e0;
+}
+
+#ac_status_dot {
+    font-size: 10px;
+    margin-right: 4px;
+}
+
+#ac_alarm_container {
+    margin-left: 6px;
+    display: none;
+}
+
+/* Confirm Dialog */
+.acctl-confirm-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+}
+
+.acctl-dialog-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.acctl-dialog-content {
+    position: relative;
+    background: white;
+    -webkit-border-radius: 8px;
+    -moz-border-radius: 8px;
+    border-radius: 8px;
+    padding: 20px;
+    min-width: 300px;
+    -webkit-box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    -moz-box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.acctl-dialog-content h3 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.acctl-dialog-content p {
+    margin: 0 0 15px 0;
+    color: #666;
+}
+
+.acctl-dialog-buttons {
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: end;
+    -webkit-justify-content: flex-end;
+    -ms-flex-pack: end;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.acctl-dialog-buttons button {
+    min-width: 80px;
+    min-height: 44px;
+    padding: 10px 20px;
+    border: none;
+    -webkit-border-radius: 4px;
+    -moz-border-radius: 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.acctl-dialog-buttons .btn-cancel {
+    background: #f0f0f0;
+    color: #333;
+}
+
+.acctl-dialog-buttons .btn-cancel:hover {
+    background: #e0e0e0;
+}
+
+.acctl-dialog-buttons .btn-confirm {
+    background: #007bff;
+    color: white;
+}
+
+.acctl-dialog-buttons .btn-confirm:hover {
+    background: #0056b3;
+}
+
+/* Toast Notifications */
+.acctl-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    -webkit-border-radius: 4px;
+    -moz-border-radius: 4px;
+    border-radius: 4px;
+    color: white;
+    font-size: 14px;
+    z-index: 10001;
+    -webkit-box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    -moz-box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    -webkit-animation: slideIn 0.3s ease;
+    -moz-animation: slideIn 0.3s ease;
+    -ms-animation: slideIn 0.3s ease;
+    -o-animation: slideIn 0.3s ease;
+    animation: slideIn 0.3s ease;
+}
+
+@-webkit-keyframes slideIn {
+    from {
+        -webkit-transform: translateX(100%);
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        -webkit-transform: translateX(0);
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@-moz-keyframes slideIn {
+    from {
+        -moz-transform: translateX(100%);
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        -moz-transform: translateX(0);
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideIn {
+    from {
+        -webkit-transform: translateX(100%);
+        -moz-transform: translateX(100%);
+        -ms-transform: translateX(100%);
+        -o-transform: translateX(100%);
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        -webkit-transform: translateX(0);
+        -moz-transform: translateX(0);
+        -ms-transform: translateX(0);
+        -o-transform: translateX(0);
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.acctl-toast-success {
+    background: #28a745;
+}
+
+.acctl-toast-error {
+    background: #dc3545;
+}
+
+.acctl-toast-warning {
+    background: #fd7e14;
+}
+
+/* AP List Table */
+.cbi-section-table tbody tr {
+    -webkit-transition: background-color 0.2s ease;
+    -moz-transition: background-color 0.2s ease;
+    -ms-transition: background-color 0.2s ease;
+    -o-transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease;
+}
+
+.cbi-section-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Status Badges */
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    -webkit-border-radius: 10px;
+    -moz-border-radius: 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.status-online {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-offline {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.status-warning {
+    background: #fff3cd;
+    color: #856404;
+}
+
+/* User Count Badge */
+.user-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    -webkit-border-radius: 10px;
+    -moz-border-radius: 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.user-badge-low {
+    color: #28a745;
+}
+
+.user-badge-medium {
+    color: #fd7e14;
+}
+
+.user-badge-high {
+    color: #dc3545;
+}
+
+/* Alarm Level Badge */
+.alarm-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    -webkit-border-radius: 4px;
+    -moz-border-radius: 4px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.alarm-info {
+    background: #17a2b8;
+    color: white;
+}
+
+.alarm-warn {
+    background: #fd7e14;
+    color: white;
+}
+
+.alarm-error {
+    background: #dc3545;
+    color: white;
+}
+
+.alarm-critical {
+    background: #721c24;
+    color: white;
+}
+
+/* Action Buttons */
+.ap-action-btn {
+    min-width: 48px;
+    min-height: 48px;
+    margin-right: 5px;
+    padding: 8px 16px;
+    font-size: 12px;
+}
+
+.ap-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    #ac_status_widget {
+        margin-left: 0;
+        margin-top: 8px;
+        display: block;
+        width: -webkit-fit-content;
+        width: -moz-fit-content;
+        width: fit-content;
+    }
+    
+    .acctl-dialog-content {
+        margin: 10px;
+        min-width: auto;
+        width: calc(100% - 20px);
+    }
+    
+    .acctl-toast {
+        right: 10px;
+        left: 10px;
+        max-width: calc(100% - 20px);
+    }
+    
+    .ap-action-btn {
+        display: block;
+        width: 100%;
+        margin-bottom: 5px;
+        margin-right: 0;
+    }
+    
+    .cbi-section-table {
+        font-size: 12px;
+    }
+    
+    .cbi-section-table td {
+        padding: 6px 4px;
+        word-break: break-all;
+    }
+}
+
+/* IE8 fallback styles */
+<!--[if lt IE 9]>
+<style>
+    .acctl-confirm-dialog {
+        text-align: center;
+    }
+    .acctl-dialog-content {
+        display: inline-block;
+        width: 300px;
+        margin-top: 100px;
+    }
+    .acctl-dialog-buttons {
+        text-align: right;
+    }
+    .acctl-dialog-buttons button {
+        display: inline-block;
+        margin-left: 10px;
+    }
+    .acctl-toast {
+        right: 10px;
+        left: 10px;
+    }
+</style>
+<![endif]-->

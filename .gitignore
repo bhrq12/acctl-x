@@ -1,0 +1,56 @@
+# Build artifacts
+ac_lib/
+ap_lib/
+cli_lib/
+ac_*.o
+ap_*.o
+cli_*.o
+cli_lib/
+acser
+apctl
+acctl-cli
+*.o
+*.a
+*.so
+*.dylib
+
+# OpenWrt build
+build_dir/
+bin/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+*.pid
+
+# Package files
+*.ipk
+*.ipk.tar.gz
+*.tar.gz
+
+# Certificate and key files (sensitive)
+*.pem
+*.key
+*.crt
+*.cer
+
+# Test coverage
+coverage/
+*.gcov
+*.gcda
+*.gcno
+
+# Firmware files
+*.bin
+*.fw

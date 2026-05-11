@@ -1,0 +1,12 @@
+<%-
+AP status badge template for Table sections with plain Lua data.
+Reads value directly from the section data, not from UCI.
+-%>
+<% local val = self.value or "1" %>
+<% if val == "0" then %>
+<span style="color:green;font-weight:bold">&#x25CF; <%:Online%></span>
+<% elseif val == "1" then %>
+<span style="color:#cc3300;font-weight:bold">&#x25CB; <%:Offline%></span>
+<% else %>
+<span style="color:#999"><%:Unknown%></span>
+<% end %>

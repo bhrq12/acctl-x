@@ -1,0 +1,84 @@
+# Makefile for acctl-ap source build
+# ============================================================================
+
+CC ?= gcc
+CFLAGS += -D_GNU_SOURCE -Wall -Wextra -std=gnu99 -DCLIENT
+CFLAGS += -I./include -I./include/capwap
+LDFLAGS += -lpthread -lm -ljson-c -lssl -lcrypto
+
+# Object files for AP client
+AP_OBJS := \
+	ap/main.o \
+	ap/apstatus.o \
+	ap/net.o \
+	ap/message.o \
+	ap/process.o
+
+# CAPWAP library objects
+CAPWAP_OBJS := \
+	lib/capwap/capwap.o \
+	lib/capwap/capwap_msg.o \
+	lib/capwap/capwap_net.o \
+	lib/capwap/capwap_dtls.o
+
+# Utility library objects
+LIB_OBJS := \
+	lib/mjson.o \
+	lib/sec.o \
+	lib/chap.o \
+	lib/md5.o \
+	lib/sha256.o \
+	lib/arg.o \
+	lib/netlayer.o \
+	lib/link.o \
+	lib/thread.o \
+	lib/dllayer.o \
+	lib/cfgarg.o \
+	lib/cmdarg.o
+
+# All objects
+OBJS := $(AP_OBJS) $(CAPWAP_OBJS) $(LIB_OBJS)
+
+# Targets
+TARGETS := apctl
+
+.PHONY: all clean
+
+all: $(TARGETS)
+
+apctl: $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+# Include dependency files
+-include $(OBJS:.o=.d)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -MMD -c $< -o $@
+
+clean:
+	rm -f $(TARGETS) $(OBJS) $(OBJS:.o=.d)
+
+# Dependency rules
+ap/main.o: include/arg.h include/capwap/capwap.h
+ap/apstatus.o: include/apstatus.h include/capwap/capwap.h
+ap/net.o: include/net.h include/netlayer.h
+ap/message.o: include/msg.h include/capwap/capwap.h
+ap/process.o: include/process.h include/arg.h
+
+lib/capwap/capwap.o: include/capwap/capwap.h
+lib/capwap/capwap_msg.o: include/capwap/capwap.h include/capwap/capwap_msg.h
+lib/capwap/capwap_net.o: include/capwap/capwap.h include/netlayer.h
+lib/capwap/capwap_dtls.o: include/capwap/capwap.h
+
+lib/mjson.o: include/mjson.h
+lib/sec.o: include/sec.h include/chap.h include/sha256.h
+lib/chap.o: include/chap.h include/md5.h
+lib/md5.o: include/md5.h
+lib/sha256.o: include/sha256.h
+lib/arg.o: include/arg.h
+lib/cfgarg.o: include/arg.h
+lib/cmdarg.o: include/arg.h
+lib/netlayer.o: include/netlayer.h include/capwap/capwap.h
+lib/link.o: include/link.h include/netlayer.h include/net.h
+lib/thread.o: include/thread.h
+lib/dllayer.o: include/dllayer.h

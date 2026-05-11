@@ -1,0 +1,22 @@
+config acctl-ac 'global'
+	option enabled '1'
+	option uuid 'auto'
+	option name 'OpenWrt-AC'
+
+config acctl-ac 'network'
+	option listen_port '8080'
+	option capwap_port '5246'
+	list nic 'br-lan'
+
+config acctl-ac 'resource'
+	option ip_start '192.168.1.200'
+	option ip_end '192.168.1.254'
+	option ip_mask '255.255.255.0'
+
+config acctl-ac 'security'
+	option password ''
+	option dtls_enabled '0'
+
+config acctl-ac 'logging'
+	option level 'info'
+	option syslog '1'

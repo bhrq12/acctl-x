@@ -1,0 +1,22 @@
+config acctl-py 'global'
+	option enabled '1'
+	option uuid 'auto'
+	option name 'OpenWrt-AC-Py'
+
+config acctl-py 'network'
+	option listen_port '8080'
+	option capwap_port '5246'
+	list nic 'br-lan'
+
+config acctl-py 'resource'
+	option ip_start '192.168.1.200'
+	option ip_end '192.168.1.254'
+	option ip_mask '255.255.255.0'
+
+config acctl-py 'security'
+	option password ''
+	option dtls_enabled '0'
+
+config acctl-py 'logging'
+	option level 'info'
+	option syslog '1'

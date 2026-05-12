@@ -23,13 +23,26 @@
 #include <unistd.h>
 #include <errno.h>
 
-#define DB_PATH  "/etc/acctl-ac/ac.json"
-#define LOCK_PATH  "/etc/acctl-ac/ac.json.lock"
-#define OUT_MAX  (64 * 1024)
+#define DB_DIR     "/etc/acctl-ac"
+#define DB_PATH    DB_DIR "/ac.json"
+#define LOCK_PATH  DB_DIR "/ac.json.lock"
+#define OUT_MAX    (64 * 1024)
+
+static int ensure_db_dir(void)
+{
+    if (access(DB_DIR, F_OK) != 0) {
+        if (mkdir(DB_DIR, 0750) != 0 && errno != EEXIST) {
+            fprintf(stderr, "Cannot create %s: %s\n", DB_DIR, strerror(errno));
+            return -1;
+        }
+    }
+    return 0;
+}
 
 static int lock_db(int lock_type)
 {
-    int fd = open(LOCK_PATH, O_CREAT | O_RDWR, 0644);
+    if (ensure_db_dir() != 0) return -1;
+    int fd = open(LOCK_PATH, O_CREAT | O_RDWR, 0640);
     if (fd < 0) return -1;
     struct flock fl;
     memset(&fl, 0, sizeof(fl));
@@ -311,7 +324,23 @@ static int cmd_alarms(int limit)
 /* ---- ack <id> ---- */
 static int cmd_ack(const char *id_str)
 {
-    int alarm_id = atoi(id_str);
+    if (!id_str || id_str[0] == '\0') {
+        fprintf(stderr, "ack requires alarm_id\n");
+        return 1;
+    }
+    
+    for (const char *p = id_str; *p; p++) {
+        if (*p < '0' || *p > '9') {
+            fprintf(stderr, "ack: invalid alarm_id format\n");
+            return 1;
+        }
+    }
+    
+    long alarm_id = atol(id_str);
+    if (alarm_id < 0 || alarm_id > 2147483647) {
+        fprintf(stderr, "ack: alarm_id out of range\n");
+        return 1;
+    }
 
     json_object *root = load_db();
     if (!root) { fprintf(stderr, "Cannot open %s\n", DB_PATH); return 1; }

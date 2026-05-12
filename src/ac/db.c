@@ -96,7 +96,7 @@ static int file_lock(int fd, int lock_type)
 static int ensure_db_dir(void)
 {
     if (access("/etc/acctl-ac", F_OK) != 0) {
-        if (mkdir("/etc/acctl-ac", 0755) != 0 && errno != EEXIST) {
+        if (mkdir("/etc/acctl-ac", 0750) != 0 && errno != EEXIST) {
             set_error("Cannot create /etc/acctl-ac: %s", strerror(errno));
             return -1;
         }

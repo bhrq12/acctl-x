@@ -103,6 +103,35 @@ int http_extract_headers(struct MHD_Connection *connection, char *buffer, size_t
 /* Forward declarations */
 int http_handle_request(http_request_t *req, http_response_t *resp);
 
+/*
+ * validate_request_path - Comprehensive path validation to prevent traversal
+ * Returns: 1 if valid, 0 if invalid
+ */
+static int validate_request_path(const char *path)
+{
+    if (!path || strlen(path) > 256)
+        return 0;
+
+    static const char *dangerous_patterns[] = {
+        "..", "./", "/.", "~",
+        "%2e", "%2E", "%2e%2e", "%2E%2E",
+        "%252e", "%252E",
+        NULL
+    };
+
+    for (int i = 0; dangerous_patterns[i]; i++) {
+        if (strcasestr(path, dangerous_patterns[i])) {
+            sys_warn("Dangerous path pattern detected: %s", dangerous_patterns[i]);
+            return 0;
+        }
+    }
+
+    if (memchr(path, '\0', strlen(path)))
+        return 0;
+
+    return 1;
+}
+
 /* HTTP request handler */
 static enum MHD_Result http_request_handler(void *cls, struct MHD_Connection *connection,
                                const char *url, const char *method,
@@ -202,8 +231,8 @@ static enum MHD_Result http_request_handler(void *cls, struct MHD_Connection *co
         req.path[sizeof(req.path) - 1] = '\0';
     }
 
-    /* Security: Path traversal attack prevention */
-    if (strstr(req.path, "..") != NULL || strstr(req.path, "//") != NULL) {
+    /* Security: Comprehensive path traversal attack prevention */
+    if (!validate_request_path(req.path)) {
         sys_warn("HTTP request with path traversal attempt: %s", req.path);
         http_response_error(&resp, 400, "Invalid path");
         http_build_response(&resp, buffer, &buffer_len);
@@ -214,22 +243,6 @@ static enum MHD_Result http_request_handler(void *cls, struct MHD_Connection *co
             MHD_destroy_response(mhd_resp);
         }
         return MHD_YES;
-    }
-
-    /* Security: Check for null bytes in path */
-    for (size_t i = 0; i < strlen(req.path); i++) {
-        if (req.path[i] == '\0') {
-            sys_warn("HTTP request with null byte in path");
-            http_response_error(&resp, 400, "Invalid path");
-            http_build_response(&resp, buffer, &buffer_len);
-            struct MHD_Response *mhd_resp = MHD_create_response_from_buffer(
-                buffer_len, (void *)buffer, MHD_RESPMEM_MUST_COPY);
-            if (mhd_resp) {
-                MHD_queue_response(connection, resp.status_code, mhd_resp);
-                MHD_destroy_response(mhd_resp);
-            }
-            return MHD_YES;
-        }
     }
 
     /* Handle the request */

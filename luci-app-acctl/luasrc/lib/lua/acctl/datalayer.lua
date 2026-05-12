@@ -3,6 +3,32 @@ module("acctl.datalayer", package.seeall)
 local sys = require "luci.sys"
 local http = require "luci.http"
 
+local ACCTL_CLI_PATHS = {
+    "/usr/bin/acctl-cli",
+    "/usr/local/bin/acctl-cli",
+    "/bin/acctl-cli",
+}
+
+local CLI_PATH = nil
+
+local function find_cli_path()
+    if CLI_PATH then return CLI_PATH end
+    for _, path in ipairs(ACCTL_CLI_PATHS) do
+        local f = io.open(path, "r")
+        if f then
+            f:close()
+            CLI_PATH = path
+            return path
+        end
+    end
+    local which = sys.exec("which acctl-cli 2>/dev/null")
+    if which and which ~= "" then
+        CLI_PATH = which:gsub("%s+$", "")
+        return CLI_PATH
+    end
+    return nil
+end
+
 function html_escape(s)
     if not s then return "" end
     return tostring(s)
@@ -34,7 +60,14 @@ function execute_cli(cmd, escape)
     local cached = get_cached(cmd)
     if cached then return cached end
     
-    local output = sys.exec("acctl-cli " .. cmd .. " 2>/dev/null")
+    local cli = find_cli_path()
+    if not cli then
+        sys.log("ACCTL", "acctl-cli not found in any known path")
+        set_cached(cmd, nil)
+        return nil
+    end
+    
+    local output = sys.exec(cli .. " " .. cmd .. " 2>/dev/null")
     if not output or output == "" then
         set_cached(cmd, nil)
         return nil

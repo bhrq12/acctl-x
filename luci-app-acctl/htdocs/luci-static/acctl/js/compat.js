@@ -334,7 +334,7 @@ ACCTL.compat = ACCTL.compat || {};
         // Array.prototype.forEach
         if (!Array.prototype.forEach) {
             Array.prototype.forEach = function(callback, thisArg) {
-                compat.ArrayUtil.forEach(this, callback, thisArg);
+                return compat.ArrayUtil.forEach(this, callback, thisArg);
             };
         }
 

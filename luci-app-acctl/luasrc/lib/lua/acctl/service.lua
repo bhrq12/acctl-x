@@ -3,6 +3,35 @@ module("acctl.service", package.seeall)
 local sys = require "luci.sys"
 local datalayer = require "acctl.datalayer"
 
+local ACCTL_INIT_PATHS = {
+    "/etc/init.d/acctl-ac",
+    "/etc/init.d/acctl",
+    "/usr/etc/init.d/acctl-ac",
+    "/usr/etc/init.d/acctl",
+}
+
+local INIT_SCRIPT = nil
+
+local function find_init_script()
+    if INIT_SCRIPT then return INIT_SCRIPT end
+    for _, path in ipairs(ACCTL_INIT_PATHS) do
+        local f = io.open(path, "r")
+        if f then
+            f:close()
+            if sys.call("test -x " .. path .. " 2>/dev/null") == 0 then
+                INIT_SCRIPT = path
+                return path
+            end
+        end
+    end
+    local which = sys.exec("which acctl-ac 2>/dev/null")
+    if which and which ~= "" then
+        INIT_SCRIPT = which:gsub("%s+$", "")
+        return INIT_SCRIPT
+    end
+    return nil
+end
+
 local ALLOWED_COMMANDS = {
     ["reboot"] = true,
     ["uptime"] = true,
@@ -87,11 +116,23 @@ function send_action(action)
         return { code = 400, message = "Invalid action" }
     end
     
-    luci.sys.call("/etc/init.d/acctl " .. action .. " > /dev/null 2>&1")
+    local init_script = find_init_script()
+    if not init_script then
+        sys.log("ACCTL", "Controller init script not found")
+        return { code = 500, message = "Controller service not found" }
+    end
+    
+    luci.sys.call(init_script .. " " .. action .. " > /dev/null 2>&1")
     return { code = 0, message = "Action executed" }
 end
 
 function restart_controller()
-    luci.sys.call("/etc/init.d/acctl restart > /dev/null 2>&1")
+    local init_script = find_init_script()
+    if not init_script then
+        sys.log("ACCTL", "Controller init script not found")
+        return { code = 500, message = "Controller service not found" }
+    end
+    
+    luci.sys.call(init_script .. " restart > /dev/null 2>&1")
     return { code = 0, message = "Controller restarted" }
 end

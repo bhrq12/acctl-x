@@ -7,7 +7,6 @@ local uci = require "luci.model.uci".cursor()
 function generate_csrf_token()
     local token = http.getcookie("csrf_token")
     if not token or token == "" then
-        -- Generate random token using urandom
         local urandom = io.open("/dev/urandom", "rb")
         if urandom then
             local rand_bytes = urandom:read(16)
@@ -17,7 +16,6 @@ function generate_csrf_token()
                 token = token .. string.format("%02x", string.byte(rand_bytes, i))
             end
         else
-            -- Fallback to timestamp based token
             token = string.format("%x%x", os.time(), sys.uptime() * 1000)
         end
         http.setcookie("csrf_token", token, { path = "/", httponly = true })

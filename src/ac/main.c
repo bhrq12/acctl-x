@@ -134,7 +134,7 @@ static int check_prerequisites(void)
 {
 	/* Ensure /etc/acctl-ac directory exists */
 	if (access("/etc/acctl-ac", F_OK) != 0) {
-		if (mkdir("/etc/acctl-ac", 0755) != 0) {
+		if (mkdir("/etc/acctl-ac", 0750) != 0) {
 			sys_err("Cannot create /etc/acctl-ac: %s\n", strerror(errno));
 			return -1;
 		}

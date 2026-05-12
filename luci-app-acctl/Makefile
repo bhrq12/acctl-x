@@ -34,6 +34,8 @@ LUCI_JAVASCRIPT:= \
 	luasrc/js/acctl/main.js
 LUCI_CSS:= \
 	luasrc/css/acctl/style.css
+LUCI_LIBRARY:= \
+	luasrc/lib/lua/
 
 include $(TOPDIR)/feeds/luci/luci.mk
 

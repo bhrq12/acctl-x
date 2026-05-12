@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <microhttpd.h>
 
@@ -103,6 +104,31 @@ int http_extract_headers(struct MHD_Connection *connection, char *buffer, size_t
 /* Forward declarations */
 int http_handle_request(http_request_t *req, http_response_t *resp);
 
+/* Portable strcasestr implementation for musl libc compatibility */
+static char *my_strcasestr(const char *haystack, const char *needle)
+{
+    if (!haystack || !needle || *needle == '\0')
+        return (char *)haystack;
+
+    size_t needle_len = strlen(needle);
+    size_t haystack_len = strlen(haystack);
+
+    if (needle_len > haystack_len)
+        return NULL;
+
+    for (size_t i = 0; i <= haystack_len - needle_len; i++) {
+        size_t j;
+        for (j = 0; j < needle_len; j++) {
+            if (tolower((unsigned char)haystack[i + j]) != tolower((unsigned char)needle[j]))
+                break;
+        }
+        if (j == needle_len)
+            return (char *)&haystack[i];
+    }
+
+    return NULL;
+}
+
 /*
  * validate_request_path - Comprehensive path validation to prevent traversal
  * Returns: 1 if valid, 0 if invalid
@@ -120,7 +146,7 @@ static int validate_request_path(const char *path)
     };
 
     for (int i = 0; dangerous_patterns[i]; i++) {
-        if (strcasestr(path, dangerous_patterns[i])) {
+        if (my_strcasestr(path, dangerous_patterns[i])) {
             sys_warn("Dangerous path pattern detected: %s", dangerous_patterns[i]);
             return 0;
         }
